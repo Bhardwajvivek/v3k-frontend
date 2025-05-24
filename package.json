@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "vite",
-    "build": "node fix-vite-permission.js && vite build"
+    "build": "chmod +x node_modules/.bin/vite && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
