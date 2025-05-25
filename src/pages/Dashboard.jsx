@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from "react";
-import { Button } from "../components/ui/button";
-import { Card, CardContent } from "../components/ui/card";
-import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
+import { Button } from "../../components/ui/button";
+import { Card, CardContent } from "../../components/ui/card";
+import { ToggleGroup, ToggleGroupItem } from "../../components/ui/toggle-group";
 
 const Dashboard = () => {
   const [signals, setSignals] = useState([]);
