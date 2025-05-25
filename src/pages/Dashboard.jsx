@@ -1,3 +1,4 @@
+import React, { useEffect, useState } from "react";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
 import { ToggleGroup, ToggleGroupItem } from "../../components/ui/toggle-group";
@@ -19,7 +20,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchSignals();
-    const interval = setInterval(fetchSignals, 60000); // refresh every 60 sec
+    const interval = setInterval(fetchSignals, 60000);
     return () => clearInterval(interval);
   }, []);
 
