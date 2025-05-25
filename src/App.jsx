@@ -1,13 +1,13 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import Dashboard from "./pages/Dashboard";
-import NotFound from "./pages/NotFound";
+import LoginPage from "./pages/LoginPage";      // ✅ FIXED
+import Dashboard from "./pages/Dashboard";      // ✅ FIXED
 
 function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="*" element={<NotFound />} />
+        <Route path="/" element={<LoginPage />} />
+        <Route path="/dashboard" element={<Dashboard />} /> {/* ✅ Add this */}
       </Routes>
     </Router>
   );

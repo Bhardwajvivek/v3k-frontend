@@ -1,6 +1,5 @@
+// src/pages/Dashboard.jsx
 import { useEffect, useState } from "react";
-import { fetchSignals } from "../api/signals";
-import SignalCard from "../components/SignalCard";
 
 function Dashboard() {
   const [signals, setSignals] = useState([]);
@@ -9,18 +8,25 @@ function Dashboard() {
   const [darkMode, setDarkMode] = useState(false);
 
   useEffect(() => {
-    const loadSignals = async () => {
-      const data = await fetchSignals();
-      setSignals(data);
-      setLoading(false);
-    };
-    loadSignals();
+    fetch("http://127.0.0.1:5000/get-signals")
+      .then((res) => res.json())
+      .then((data) => {
+        setSignals(data);
+        setLoading(false);
+      })
+      .catch((err) => console.error("Error fetching signals:", err));
   }, []);
 
   const filteredSignals =
     filterType === "All"
       ? signals
-      : signals.filter((s) => s.type === filterType);
+      : signals.filter((s) =>
+          filterType === "Buy"
+            ? s.position_type?.toLowerCase().includes("buy")
+            : filterType === "Sell"
+            ? s.position_type?.toLowerCase().includes("sell")
+            : true
+        );
 
   return (
     <div className={darkMode ? "dark" : ""}>
@@ -62,8 +68,18 @@ function Dashboard() {
             <p className="text-red-500">No signals found.</p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {filteredSignals.map((signal, i) => (
-                <SignalCard key={i} {...signal} />
+              {filteredSignals.map((s, i) => (
+                <div
+                  key={i}
+                  className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg shadow"
+                >
+                  <h2 className="text-xl font-bold mb-2">{s.symbol}</h2>
+                  <p>Type: {s.position_type}</p>
+                  <p>Reason: {s.reason}</p>
+                  <p>Entry: ₹{s.entry}</p>
+                  <p>Exit: ₹{s.exit}</p>
+                  <p>Stop Loss: ₹{s.stop_loss}</p>
+                </div>
               ))}
             </div>
           )}
