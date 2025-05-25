@@ -20,7 +20,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchSignals();
-    const interval = setInterval(fetchSignals, 60000); // auto-refresh every 60 sec
+    const interval = setInterval(fetchSignals, 60000); // refresh every 60 sec
     return () => clearInterval(interval);
   }, []);
 
