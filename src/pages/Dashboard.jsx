@@ -1,73 +1,63 @@
-import { useEffect, useState } from "react";
-import { Card, CardContent } from "../../components/ui/card";
-import { ToggleGroup, ToggleGroupItem } from "../../components/ui/toggle-group";
+import React, { useEffect, useState } from "react";
 
-const Dashboard = () => {
+export default function Dashboard() {
   const [signals, setSignals] = useState([]);
   const [filter, setFilter] = useState("all");
 
-  const fetchSignals = async () => {
-    try {
-      const res = await fetch("https://v3k-backend-api.onrender.com/get-signals");
-      const data = await res.json();
-      setSignals(data || []);
-    } catch (error) {
-      console.error("Failed to fetch signals:", error);
-      setSignals([]);
-    }
-  };
-
   useEffect(() => {
+    const fetchSignals = async () => {
+      try {
+        const res = await fetch("https://v3k-backend-api.onrender.com/get-signals");
+        const data = await res.json();
+        setSignals(data || []);
+      } catch (err) {
+        console.error("Failed to fetch signals", err);
+      }
+    };
     fetchSignals();
-    const interval = setInterval(fetchSignals, 60000);
-    return () => clearInterval(interval);
   }, []);
 
-  const filteredSignals = signals.filter(signal => {
-    if (filter === "all") return true;
-    return signal.position_type?.toLowerCase() === filter;
-  });
+  const filtered = signals.filter(
+    (s) => filter === "all" || s.position_type?.toLowerCase() === filter.toLowerCase()
+  );
 
   return (
-    <div className="p-4 min-h-screen bg-background text-foreground">
-      <div className="text-center mb-6">
-        <h1 className="text-4xl font-bold tracking-tight">V3k - AI Trading Bot</h1>
-        <p className="text-muted-foreground text-sm">Turning signals into success</p>
+    <div className="p-6 max-w-6xl mx-auto">
+      <header className="text-center mb-8">
+        <h1 className="text-4xl font-bold">V3k - AI Trading Bot</h1>
+        <p className="text-gray-400">Turning signals into success</p>
+      </header>
+
+      <div className="flex justify-center gap-4 mb-6">
+        {["all", "intraday", "swing", "options"].map((type) => (
+          <button
+            key={type}
+            onClick={() => setFilter(type)}
+            className={`px-4 py-2 rounded-full text-sm font-medium ${
+              filter === type
+                ? "bg-green-600 text-white"
+                : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+            }`}
+          >
+            {type.charAt(0).toUpperCase() + type.slice(1)}
+          </button>
+        ))}
       </div>
 
-      <div className="flex justify-center mb-6">
-        <ToggleGroup
-          type="single"
-          value={filter}
-          onValueChange={(val) => setFilter(val || "all")}
-        >
-          <ToggleGroupItem value="all">All</ToggleGroupItem>
-          <ToggleGroupItem value="intraday">Intraday</ToggleGroupItem>
-          <ToggleGroupItem value="swing">Swing</ToggleGroupItem>
-          <ToggleGroupItem value="options">Options</ToggleGroupItem>
-        </ToggleGroup>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {filteredSignals.length === 0 ? (
-          <div className="col-span-full text-center text-muted-foreground">
-            No signals to display
-          </div>
-        ) : (
-          filteredSignals.map((signal, idx) => (
-            <Card key={idx} className="shadow-md">
-              <CardContent className="p-4 space-y-2">
-                <h2 className="text-xl font-semibold">{signal.symbol}</h2>
-                <p className="text-sm">Type: <strong>{signal.signal_type}</strong></p>
-                <p className="text-sm">Position: <strong>{signal.position_type}</strong></p>
-                <p className="text-sm text-muted-foreground">{signal.reason}</p>
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </div>
+      {filtered.length === 0 ? (
+        <p className="text-center text-gray-400">Loading signals...</p>
+      ) : (
+        <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
+          {filtered.map((signal, idx) => (
+            <div key={idx} className="bg-gray-800 p-4 rounded-xl shadow hover:ring-2 hover:ring-green-500">
+              <h2 className="text-xl font-semibold">{signal.symbol}</h2>
+              <p className="text-sm">Type: {signal.type}</p>
+              <p className="text-sm">Position: {signal.position_type}</p>
+              <p className="text-sm text-gray-400">{signal.reason}</p>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
-};
-
-export default Dashboard;
+}
