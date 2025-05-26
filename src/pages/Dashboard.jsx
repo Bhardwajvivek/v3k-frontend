@@ -1,30 +1,61 @@
 import React, { useEffect, useState } from "react";
 import { Dialog, DialogContent } from "@radix-ui/react-dialog";
 
+const PASSCODE = "v3k@123";
+
 export default function Dashboard() {
   const [signals, setSignals] = useState([]);
   const [filter, setFilter] = useState("all");
   const [selectedSymbol, setSelectedSymbol] = useState(null);
+  const [enteredPasscode, setEnteredPasscode] = useState("");
+  const [accessGranted, setAccessGranted] = useState(false);
 
   const chartSymbol = selectedSymbol ? `NSE:${selectedSymbol.toUpperCase()}` : null;
 
   useEffect(() => {
+    if (!accessGranted) return;
     const fetchSignals = async () => {
       try {
         const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/get-signals`);
         const json = await res.json();
-        setSignals(json || []); // fix for actual backend structure
+        setSignals(json || []);
       } catch (err) {
         console.error("Failed to fetch signals", err);
         setSignals([]);
       }
     };
     fetchSignals();
-  }, []);
+  }, [accessGranted]);
 
   const filtered = signals.filter(
     (s) => filter === "all" || s.position_type?.toLowerCase() === filter.toLowerCase()
   );
+
+  if (!accessGranted) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-black text-white">
+        <div className="p-6 bg-gray-900 rounded-xl shadow-lg w-full max-w-sm text-center">
+          <h1 className="text-2xl font-bold mb-4">Enter Passcode</h1>
+          <input
+            type="password"
+            value={enteredPasscode}
+            onChange={(e) => setEnteredPasscode(e.target.value)}
+            className="w-full p-2 mb-4 rounded bg-gray-800 border border-gray-700 text-white"
+            placeholder="Passcode"
+          />
+          <button
+            onClick={() => setAccessGranted(enteredPasscode === PASSCODE)}
+            className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded text-white w-full"
+          >
+            Access Dashboard
+          </button>
+          {enteredPasscode && enteredPasscode !== PASSCODE && (
+            <p className="mt-2 text-red-500 text-sm">Incorrect passcode</p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 max-w-6xl mx-auto text-white">
