@@ -1,22 +1,11 @@
-// App.jsx  –  2025-06-16 final
+// App.jsx – FINAL (live backend URL locked)
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { AreaChart, Area, ResponsiveContainer } from "recharts";
 import ChartModal from "./components/ChartModal";
 
-/* ---------- 1. Resolve backend base URL ---------- */
-const getApiBaseUrl = () => {
-  // ⬇️ honour .env first (works locally & on Vercel if you set the var)
-  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
-
-  // ⬇️ production fallback for your domain
-  if (window.location.hostname.includes("v3kbot"))
-    return "https://v3k-backend-api.onrender.com";
-
-  // ⬇️ default local dev
-  return "http://127.0.0.1:5000";
-};
-const API_URL = getApiBaseUrl();
+/* ---------- 1. BACKEND BASE URL (fixed) ---------- */
+const API_URL = "https://v3k-backend-api.onrender.com";
 
 /* ---------- 2. Main Component ---------- */
 const App = () => {
@@ -43,8 +32,7 @@ const App = () => {
     const now = new Date();
     const [h, m] = [now.getHours(), now.getMinutes()];
     if (h >= 9 && (h < 15 || (h === 15 && m <= 30))) {
-      const u = new SpeechSynthesisUtterance(text);
-      window.speechSynthesis.speak(u);
+      window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
     }
   };
 
@@ -53,8 +41,8 @@ const App = () => {
     try {
       const res = await axios.get(`${API_URL}/get-signals`);
       const raw = res.data?.signals || [];
+
       const enriched = raw.map((s) => {
-        // dynamic SL / TP calc
         const entry = s.entryPrice || s.price;
         let sl = s.stopLoss ?? entry * 0.98;
         const rr = s.riskRewardRatio ?? 2.0;
@@ -77,7 +65,6 @@ const App = () => {
         };
       });
 
-      // 🔔 voice alert on NEW top 3
       const top3 = [...enriched]
         .sort((a, b) => b.strength - a.strength)
         .slice(0, 3);
@@ -89,12 +76,10 @@ const App = () => {
       });
       prevSignalIds.current = newIds;
 
-      // sort & trim list for UI
       setSignals(
         enriched.sort((a, b) => b.strength - a.strength).slice(0, 10)
       );
 
-      // build dynamic filter lists
       const tagSet = new Set(),
         typeSet = new Set(),
         tfSet = new Set();
@@ -136,7 +121,7 @@ const App = () => {
     }
   };
 
-  /* ---------- 5. First load ---------- */
+  /* ---------- 5. Initial Load ---------- */
   useEffect(() => {
     fetchSignals();
     fetchIndices();
@@ -144,7 +129,7 @@ const App = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ---------- 6. Auto-refresh ---------- */
+  /* ---------- 6. Auto-Refresh ---------- */
   useEffect(() => {
     const id = setInterval(() => {
       if (!paused) {
@@ -160,9 +145,9 @@ const App = () => {
           return c - 1;
         });
       }
-    }, 1_000);
+    }, 1000);
     return () => clearInterval(id);
-  }, [autoRefresh, paused]); // deps
+  }, [autoRefresh, paused]);
 
   /* ---------- 7. Filtering ---------- */
   const toggle = (setter, key) =>
@@ -269,7 +254,7 @@ const App = () => {
         </label>
       </div>
 
-      {/* dynamic filters */}
+      {/* filters */}
       <div className="mb-4 flex flex-wrap gap-2 text-xs">
         {Object.keys(strategyFilters).map((tag) => (
           <button
@@ -331,7 +316,9 @@ const App = () => {
             }`}
           >
             <div className="flex justify-between items-center mb-2">
-              <h3 className="text-lg font-bold text-yellow-400">{s.symbol}</h3>
+              <h3 className="text-lg font-bold text-yellow-400">
+                {s.symbol}
+              </h3>
               <span
                 className={`px-2 py-1 rounded-full text-xs ${
                   s.signalType === "Buy" ? "bg-green-600" : "bg-red-600"
@@ -363,59 +350,3 @@ const App = () => {
                   className="h-2 rounded bg-gradient-to-r from-green-400 to-blue-500"
                   style={{ width: `${s.strength || 70}%` }}
                 />
-              </div>
-            </div>
-
-            {/* sparkline */}
-            {s.sparkline && (
-              <div className="mt-3">
-                <ResponsiveContainer width="100%" height={50}>
-                  <AreaChart
-                    data={s.sparkline.map((v, i) => ({ idx: i, value: v }))}
-                  >
-                    <Area
-                      type="monotone"
-                      dataKey="value"
-                      stroke="#0ff"
-                      fill="#0ff"
-                      fillOpacity={0.2}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {/* news */}
-      <div className="mt-10">
-        <h2 className="text-xl font-bold mb-2">📰 Market News</h2>
-        <ul className="space-y-1 list-disc pl-4 text-blue-400 text-sm">
-          {news.map((n, idx) => (
-            <li key={idx}>
-              <a
-                href={n.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:underline"
-              >
-                {n.title} –{" "}
-                <span className="text-gray-400">{n.source}</span>
-              </a>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      {/* modal */}
-      <ChartModal
-        signal={selectedSignal}
-        onClose={() => setSelectedSignal(null)}
-        darkMode={darkMode}
-      />
-    </div>
-  );
-};
-
-export default App;
