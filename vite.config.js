@@ -7,7 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export default defineConfig({
-  base: './', // ✅ use './' to resolve relative paths
+  base: './', // ✅ Ensures relative asset paths
   plugins: [react()],
   resolve: {
     alias: {

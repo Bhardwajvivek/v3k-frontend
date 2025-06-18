@@ -1,11 +1,10 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import App from './App.jsx'; // ✅ This loads your full trading dashboard
+import './index.css'; // Optional: Your Tailwind or global styles
 
-const App = () => (
-  <div style={{ padding: '2rem', color: '#fff', backgroundColor: '#000' }}>
-    <h1>✅ V3k AI Trading Bot is working on Vercel!</h1>
-    <p>Live signal feed connected successfully.</p>
-  </div>
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
 );
-
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
