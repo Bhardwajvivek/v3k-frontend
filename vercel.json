@@ -1,13 +1,10 @@
 {
   "version": 2,
-  "buildCommand": "mkdir -p dist && cp dashboard.html dist/index.html",
-  "outputDirectory": "dist",
+  "buildCommand": "echo static",
+  "outputDirectory": ".",
   "installCommand": "echo skip",
   "framework": null,
   "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
-    }
+    { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
