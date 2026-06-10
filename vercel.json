@@ -1,7 +1,7 @@
 {
   "version": 2,
-  "buildCommand": "echo static",
-  "outputDirectory": ".",
+  "buildCommand": "echo done",
+  "outputDirectory": "public",
   "installCommand": "echo skip",
   "framework": null,
   "routes": [
