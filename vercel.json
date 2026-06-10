@@ -1,6 +1,9 @@
 {
   "version": 2,
+  "buildCommand": "mkdir -p dist && cp dashboard.html dist/index.html",
   "outputDirectory": "dist",
+  "installCommand": "echo skip",
+  "framework": null,
   "routes": [
     {
       "src": "/(.*)",
