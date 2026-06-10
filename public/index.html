@@ -636,6 +636,44 @@
       <div class="risk-metric"><div class="risk-metric-name">MTD P&L</div><div class="risk-metric-val good">+₹28,400</div><div class="risk-metric-sub">+5.68%</div></div>
     </div>
     <div class="portfolio-grid" id="portfolioGrid"></div>
+
+    <!-- VESTED HOLDINGS (US mode only) -->
+    <div id="vestedSection" style="display:none;margin-top:26px;">
+      <div class="section-title" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        🇺🇸 My Vested Holdings
+        <span style="font-size:12px;color:var(--text-secondary);font-weight:400;">live prices · saved in your browser</span>
+      </div>
+
+      <!-- Summary cards -->
+      <div class="risk-grid" style="margin-bottom:16px;">
+        <div class="risk-metric"><div class="risk-metric-name">Invested</div><div class="risk-metric-val" id="vstInvested">$0.00</div><div class="risk-metric-sub" id="vstInvestedInr">≈ ₹0</div></div>
+        <div class="risk-metric"><div class="risk-metric-name">Current Value</div><div class="risk-metric-val" id="vstValue">$0.00</div><div class="risk-metric-sub" id="vstValueInr">≈ ₹0</div></div>
+        <div class="risk-metric"><div class="risk-metric-name">Total P&L</div><div class="risk-metric-val" id="vstPnl">$0.00</div><div class="risk-metric-sub" id="vstPnlPct">0.00%</div></div>
+        <div class="risk-metric"><div class="risk-metric-name">Holdings</div><div class="risk-metric-val" id="vstCount">0</div><div class="risk-metric-sub">positions</div></div>
+      </div>
+
+      <!-- Add holding form -->
+      <div class="wl-add-row">
+        <input type="text"   class="chat-input" id="vstSym" placeholder="Ticker (e.g. AAPL)" style="max-width:150px;text-transform:uppercase;">
+        <input type="number" class="chat-input" id="vstQty" placeholder="Qty (e.g. 2.5)" step="any" style="max-width:130px;">
+        <input type="number" class="chat-input" id="vstAvg" placeholder="Avg cost $" step="any" style="max-width:140px;">
+        <button class="chat-send-btn" onclick="addVested()">+ Add</button>
+        <button class="wl-rename-btn" onclick="toggleVestedCsv()">📋 Paste CSV</button>
+        <button class="wl-rename-btn" onclick="refreshVestedPrices()">🔄 Refresh</button>
+      </div>
+
+      <!-- CSV paste box (hidden by default) -->
+      <div id="vstCsvBox" style="display:none;margin-bottom:16px;">
+        <textarea id="vstCsvText" class="chat-input" style="width:100%;height:110px;resize:vertical;font-family:monospace;font-size:12px;"
+          placeholder="Paste Vested holdings CSV here. Columns auto-detected — Symbol, Quantity/Shares, Average/Cost price. Header row optional.&#10;Example:&#10;AAPL,3,171.20&#10;NVDA,1.5,842.00"></textarea>
+        <div style="margin-top:8px;display:flex;gap:8px;">
+          <button class="chat-send-btn" onclick="importVestedCsv()">Import CSV</button>
+          <button class="wl-rename-btn" onclick="toggleVestedCsv()">Cancel</button>
+        </div>
+      </div>
+
+      <div id="vestedGrid" class="portfolio-grid"></div>
+    </div>
   </div>
 
   <div class="tab-panel" id="tab-crypto">
@@ -1110,6 +1148,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   initWatchlist();
+  initVested();
   initMarketMode();
   startAutoRefresh();
   setTimeout(() => showRiskModal(), 10000);
@@ -1311,7 +1350,7 @@ function switchTab(name) {
 
   // Lazy-load live data when tab is opened
   if (state.backendConnected) {
-    if (name === 'portfolio')  loadLivePortfolio();
+    if (name === 'portfolio')  { loadLivePortfolio(); if (isUS()) refreshVestedPrices(); }
     if (name === 'sentiment')  loadLiveSentiment();
     if (name === 'aipred')     loadLivePredictions();
     if (name === 'news')       loadLiveNews();
@@ -2108,6 +2147,8 @@ function applyMarketMode() {
   drawSectorHeatmap();
   drawPLChart();
   updateLiveStats();
+  syncVestedVisibility();
+  if (market === 'us') { renderVested(); if (state.backendConnected) refreshVestedPrices(); }
 
   // Pull live data for the active market
   if (state.backendConnected) {
@@ -2307,6 +2348,165 @@ function initWatchlist() {
   renderWlTabs();
   renderWlStocks();
   buildQuickChips();
+}
+
+// ─── VESTED HOLDINGS (US portfolio) ──────────────────────────────────────────
+let vested = [];            // [{sym, qty, avg}]
+let vestedPrices = {};      // {sym:{price,change}}
+let vestedInrRate = 83.2;   // USD→INR fallback; refined from CoinGecko if available
+
+function loadVested()  { try { const s = localStorage.getItem('v3k_vested'); if (s) vested = JSON.parse(s); } catch(e){} }
+function saveVested()  { try { localStorage.setItem('v3k_vested', JSON.stringify(vested)); } catch(e){} }
+
+function toggleVestedCsv() {
+  const box = document.getElementById('vstCsvBox');
+  box.style.display = box.style.display === 'none' ? 'block' : 'none';
+}
+
+function addVested() {
+  const sym = (document.getElementById('vstSym').value || '').trim().toUpperCase().replace(/\s/g,'');
+  const qty = parseFloat(document.getElementById('vstQty').value);
+  const avg = parseFloat(document.getElementById('vstAvg').value);
+  if (!sym || !(qty > 0) || !(avg > 0)) { showToast('Enter ticker, quantity and avg cost ($)', 'warning'); return; }
+  const existing = vested.find(v => v.sym === sym);
+  if (existing) {
+    // average in the new lot
+    const totalQty = existing.qty + qty;
+    existing.avg = ((existing.avg * existing.qty) + (avg * qty)) / totalQty;
+    existing.qty = totalQty;
+  } else {
+    vested.push({ sym, qty, avg });
+  }
+  saveVested();
+  document.getElementById('vstSym').value = '';
+  document.getElementById('vstQty').value = '';
+  document.getElementById('vstAvg').value = '';
+  renderVested();
+  refreshVestedPrices();
+  showToast('✅ ' + sym + ' added to Vested holdings', 'success');
+}
+
+function removeVested(sym) {
+  vested = vested.filter(v => v.sym !== sym);
+  saveVested();
+  renderVested();
+}
+
+function importVestedCsv() {
+  const raw = (document.getElementById('vstCsvText').value || '').trim();
+  if (!raw) { showToast('Paste your CSV first', 'warning'); return; }
+  const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  let added = 0;
+  lines.forEach((line, idx) => {
+    const cols = line.split(/[,\t;]+/).map(c => c.trim());
+    // Skip a header row if first cell isn't a ticker-like token
+    if (idx === 0 && /[a-z]/i.test(cols[0]) && /(sym|ticker|stock|name)/i.test(cols[0])) return;
+    // Find ticker (first all-caps alpha cell), then first two numeric cells = qty, avg
+    const sym = (cols.find(c => /^[A-Za-z.]{1,6}$/.test(c)) || cols[0] || '').toUpperCase().replace(/[^A-Z.]/g,'');
+    const nums = cols.map(c => parseFloat(c.replace(/[$,]/g,''))).filter(n => !isNaN(n));
+    if (!sym || nums.length < 2) return;
+    const qty = nums[0], avg = nums[1];
+    if (!(qty > 0) || !(avg > 0)) return;
+    const existing = vested.find(v => v.sym === sym);
+    if (existing) { existing.qty = qty; existing.avg = avg; }
+    else vested.push({ sym, qty, avg });
+    added++;
+  });
+  saveVested();
+  toggleVestedCsv();
+  document.getElementById('vstCsvText').value = '';
+  renderVested();
+  refreshVestedPrices();
+  showToast(added ? ('✅ Imported ' + added + ' holdings from CSV') : 'No valid rows found — check format', added ? 'success' : 'warning');
+}
+
+function renderVested() {
+  const grid = document.getElementById('vestedGrid');
+  document.getElementById('vstCount').textContent = vested.length;
+  if (!vested.length) {
+    grid.innerHTML = `<div class="wl-empty" style="grid-column:1/-1;">
+      <div style="font-size:34px;margin-bottom:8px;">🇺🇸</div>
+      <div style="font-size:14px;font-weight:600;margin-bottom:4px;">No Vested holdings yet</div>
+      <div style="font-size:12px;">Add a position above, or paste your Vested CSV. Live P&amp;L updates automatically.</div>
+    </div>`;
+    updateVestedTotals();
+    return;
+  }
+  grid.innerHTML = vested.map(v => {
+    const p     = vestedPrices[v.sym];
+    const ltp   = p ? parseFloat(p.price) : null;
+    const value = ltp !== null ? ltp * v.qty : null;
+    const inv   = v.avg * v.qty;
+    const pnl   = value !== null ? value - inv : null;
+    const pnlPct= (pnl !== null && inv) ? (pnl / inv * 100) : null;
+    return `
+    <div class="position-card">
+      <div class="position-header">
+        <div><div class="position-symbol">${v.sym}</div><div style="font-size:11px;color:var(--text-secondary)">Vested · US</div></div>
+        <div class="position-pnl ${pnl===null?'':(pnl>=0?'profit':'loss')}">${pnl===null ? '<span style="color:var(--text-secondary)">—</span>' : (pnl>=0?'+':'-')+'$'+Math.abs(pnl).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+' ('+(pnlPct>=0?'+':'')+pnlPct.toFixed(2)+'%)'}</div>
+      </div>
+      <div class="position-details">
+        <div class="position-detail">Qty: <span>${v.qty}</span></div>
+        <div class="position-detail">Avg: <span>$${v.avg.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</span></div>
+        <div class="position-detail">LTP: <span>${ltp===null?'—':'$'+ltp.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</span></div>
+        <div class="position-detail">Value: <span>${value===null?'—':'$'+value.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</span></div>
+      </div>
+      <div style="margin-top:10px;text-align:right;">
+        <button class="wl-remove" onclick="removeVested('${v.sym}')">✕ Remove</button>
+      </div>
+    </div>`;
+  }).join('');
+  updateVestedTotals();
+}
+
+function updateVestedTotals() {
+  let inv = 0, val = 0, priced = false;
+  vested.forEach(v => {
+    inv += v.avg * v.qty;
+    const p = vestedPrices[v.sym];
+    if (p) { val += parseFloat(p.price) * v.qty; priced = true; }
+    else   { val += v.avg * v.qty; }
+  });
+  const pnl    = val - inv;
+  const pnlPct = inv ? (pnl / inv * 100) : 0;
+  const usd = n => '$' + n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const inr = n => '≈ ₹' + Math.round(n * vestedInrRate).toLocaleString('en-IN');
+  document.getElementById('vstInvested').textContent    = usd(inv);
+  document.getElementById('vstInvestedInr').textContent = inr(inv);
+  document.getElementById('vstValue').textContent       = usd(val);
+  document.getElementById('vstValueInr').textContent    = inr(val);
+  const pnlEl = document.getElementById('vstPnl');
+  pnlEl.textContent = (pnl>=0?'+':'-') + usd(Math.abs(pnl)).replace('$','$');
+  pnlEl.className = 'risk-metric-val ' + (pnl>=0 ? 'good' : 'bad');
+  const pctEl = document.getElementById('vstPnlPct');
+  pctEl.textContent = (priced ? '' : '(awaiting live prices) ') + (pnlPct>=0?'+':'') + pnlPct.toFixed(2) + '%';
+}
+
+async function refreshVestedPrices() {
+  if (!vested.length) return;
+  if (!state.backendConnected) {
+    showToast('Backend offline — P&L will update once live prices are available', 'warning');
+    return;
+  }
+  const syms = vested.map(v => v.sym);
+  const data = await apiPost('/watchlist-prices', { symbols: syms }, null);
+  if (data && data.prices) {
+    vestedPrices = { ...vestedPrices, ...data.prices };
+    renderVested();
+  }
+}
+
+function initVested() {
+  loadVested();
+  renderVested();
+  // Pick up live USD→INR rate from crypto loader if it ran
+  if (typeof cryptoInrRates === 'object' && cryptoInrRates.usd) vestedInrRate = cryptoInrRates.usd;
+}
+
+// Show/hide the Vested section based on market mode; called from applyMarketMode + switchTab
+function syncVestedVisibility() {
+  const sec = document.getElementById('vestedSection');
+  if (sec) sec.style.display = isUS() ? 'block' : 'none';
 }
 
 // ─── TELEGRAM ALERT ──────────────────────────────────────────────────────────
