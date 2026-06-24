@@ -2158,9 +2158,10 @@ function tradeSignal(sym, type, market) {
   const side   = (String(type).toUpperCase() === 'SELL') ? 'SELL' : 'BUY';
   const isUsMkt = market ? (market === 'us') : isUS();
   if (isUsMkt) {
-    // Vested has no per-symbol order deep link — open the app to log in and trade
-    window.open('https://app.vestedfinance.com/', '_blank', 'noopener');
-    showToast('Opening Vested — log in, search ' + sym + ', and place your ' + side + ' order.', 'info');
+    // Vested per-stock page (has the Invest/Buy button); lands here if already logged in
+    const tkr = String(sym).toUpperCase().split(/\s+/)[0].replace(/[^A-Z.]/g,'');
+    window.open('https://app.vestedfinance.com/instrument/' + tkr, '_blank', 'noopener');
+    showToast('Opening ' + tkr + ' on Vested — tap Invest/Buy to place your ' + side + ' order.', 'info');
     return;
   }
   openZerodhaOrder(sym, side, 1);
