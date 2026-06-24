@@ -347,6 +347,20 @@
   .modal { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 14px; padding: 28px; max-width: 480px; width: 90%; animation: slideIn 0.3s ease; }
   .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
   .modal-body { font-size: 14px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 20px; }
+
+  /* TRADINGVIEW CHART MODAL */
+  [data-chart-sym] { cursor: pointer; }
+  [data-chart-sym]:hover { outline: 1px solid var(--accent-cyan); outline-offset: 1px; }
+  .chart-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 3000; display: none; align-items: center; justify-content: center; padding: 2vh 2vw; }
+  .chart-modal-overlay.show { display: flex; }
+  .chart-modal { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 14px; width: 96vw; max-width: 1100px; height: 88vh; display: flex; flex-direction: column; overflow: hidden; animation: slideIn 0.25s ease; }
+  .chart-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--border); }
+  .chart-modal-title { font-size: 16px; font-weight: 700; }
+  .chart-tv-link { font-size: 12px; color: var(--accent-cyan); text-decoration: none; border: 1px solid var(--border); padding: 6px 12px; border-radius: 8px; }
+  .chart-tv-link:hover { background: var(--bg-hover); }
+  .chart-modal-close { background: none; border: 1px solid var(--border); color: var(--text-secondary); width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 14px; }
+  .chart-modal-close:hover { background: var(--accent-red); color: #fff; }
+  .chart-modal-body { flex: 1; min-height: 0; position: relative; }
   .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
 
   /* FLOATING ACTION */
@@ -789,6 +803,20 @@
   </div>
 </div>
 
+<!-- TRADINGVIEW CHART MODAL -->
+<div class="chart-modal-overlay" id="chartModal">
+  <div class="chart-modal">
+    <div class="chart-modal-header">
+      <div class="chart-modal-title" id="chartModalTitle">📈 Chart</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <a id="chartTvLink" href="#" target="_blank" rel="noopener" class="chart-tv-link">Open in TradingView ↗</a>
+        <button class="chart-modal-close" onclick="closeChart()">✕</button>
+      </div>
+    </div>
+    <div class="chart-modal-body" id="tvChartContainer"></div>
+  </div>
+</div>
+
 <script>
 // ─── BACKEND CONFIG ──────────────────────────────────────────────────────────
 // Primary: Render cloud backend. Fallback: localhost dev server.
@@ -1178,7 +1206,7 @@ function buildTicker(stocks) {
     const up    = s.c >= 0;
     const price = isUs ? '$' + s.p.toLocaleString('en-US',{maximumFractionDigits:2})
                        : '₹' + s.p.toLocaleString('en-IN');
-    return `<div class="ticker-item"><span class="ticker-symbol">${sym}</span><span class="ticker-price" data-base="${s.p}" data-sym="${sym}">${price}</span><span class="ticker-change ${up?'up':'down'}">${up?'▲':'▼'}${Math.abs(s.c)}%</span></div>`;
+    return `<div class="ticker-item" data-chart-sym="${sym}" title="Click to view ${sym} chart"><span class="ticker-symbol">${sym}</span><span class="ticker-price" data-base="${s.p}" data-sym="${sym}">${price}</span><span class="ticker-change ${up?'up':'down'}">${up?'▲':'▼'}${Math.abs(s.c)}%</span></div>`;
   }).join('');
 }
 
@@ -1199,7 +1227,7 @@ function buildSignalCard(s) {
   const strCls = s.str >= 80 ? 'high' : s.str >= 60 ? 'medium' : 'low';
   const targets = [s.t1, s.t2, s.t3].filter(Boolean);
   return `
-    <div class="signal-card ${dir}" id="card-${s.sym.replace(/\s/g,'-')}">
+    <div class="signal-card ${dir}" id="card-${s.sym.replace(/\s/g,'-')}" data-chart-sym="${s.sym}" title="Click to view ${s.sym} chart">
       <div class="signal-card-header">
         <div>
           <div class="signal-symbol">${s.sym}</div>
@@ -1235,7 +1263,7 @@ function renderAllTabs() {
   document.getElementById('scalpingGrid').innerHTML = DS.scalping().map(buildSignalCard).join('');
   document.getElementById('multitfGrid').innerHTML = DS.multitf().map(buildSignalCard).join('');
   document.getElementById('aiScannerList').innerHTML = DS.scanner().map(s => `
-    <div class="scanner-card">
+    <div class="scanner-card" data-chart-sym="${s.sym}" title="Click to view ${s.sym} chart">
       <div class="scanner-header"><div class="scanner-symbol">${s.sym}</div><div class="scanner-score">Score: ${s.score}/100</div></div>
       <div class="scanner-factors">${s.factors.map(f=>`<span class="factor-tag ${f.toLowerCase().replace(/\s/g,'')}">${f}</span>`).join('')}</div>
       <div style="font-size:11px;color:var(--text-secondary);margin-bottom:6px;">Confidence: ${s.conf}%</div>
@@ -1250,7 +1278,7 @@ function renderAllTabs() {
       </div>
     </div>`).join('');
   document.getElementById('predList').innerHTML = DS.preds().map(p => `
-    <div class="prediction-card">
+    <div class="prediction-card" data-chart-sym="${p.sym}" title="Click to view ${p.sym} chart">
       <div class="pred-header">
         <div class="pred-symbol">${p.sym} — <span style="font-size:12px;color:var(--text-secondary)">${p.timeframe}</span></div>
         <span class="pred-confidence ${p.conf}">AI ${p.confPct}%</span>
@@ -1259,7 +1287,7 @@ function renderAllTabs() {
       <div class="pred-reasoning">${p.reason}</div>
     </div>`).join('');
   document.getElementById('portfolioGrid').innerHTML = DS.port().map(p => `
-    <div class="position-card">
+    <div class="position-card" data-chart-sym="${p.sym}" title="Click to view ${p.sym} chart">
       <div class="position-header">
         <div><div class="position-symbol">${p.sym}</div><div style="font-size:11px;color:var(--text-secondary)">${p.sector}</div></div>
         <div class="position-pnl ${p.pnl>=0?'profit':'loss'}">${p.pnl>=0?'+':'-'}${money(Math.abs(p.pnl))} (${p.pnlPct>=0?'+':''}${p.pnlPct}%)</div>
@@ -1272,7 +1300,7 @@ function renderAllTabs() {
       </div>
     </div>`).join('');
   document.getElementById('cryptoGrid').innerHTML = CRYPTO_DATA.map(c => `
-    <div class="crypto-card" data-sym="${c.sym}">
+    <div class="crypto-card" data-sym="${c.sym}" data-chart-sym="${c.sym}" title="Click to view ${c.sym} chart">
       <div class="crypto-icon">${c.icon}</div>
       <div class="crypto-name">${c.name} <span style="color:var(--text-secondary);font-size:11px">${c.sym}</span></div>
       <div class="crypto-price">${c.price}</div>
@@ -2029,6 +2057,71 @@ function showToast(msg, type='info') {
 function showRiskModal() { document.getElementById('riskModal').classList.add('show'); }
 function closeModal(id) { document.getElementById(id).classList.remove('show'); }
 
+// ─── TRADINGVIEW CHART ───────────────────────────────────────────────────────
+// Map a dashboard symbol to a TradingView symbol. `market` overrides auto-detect.
+function tvSymbol(raw, market) {
+  let s = (raw || '').toUpperCase().trim();
+  const crypto = {BTC:'BINANCE:BTCUSDT',ETH:'BINANCE:ETHUSDT',BNB:'BINANCE:BNBUSDT',SOL:'BINANCE:SOLUSDT',
+                  ADA:'BINANCE:ADAUSDT',XRP:'BINANCE:XRPUSDT',LTC:'BINANCE:LTCUSDT',DOGE:'BINANCE:DOGEUSDT'};
+  if (crypto[s]) return crypto[s];
+  s = s.split(/\s+/)[0].replace(/[^A-Z0-9.&]/g,'');  // first token (handles "SPY 525 CE")
+  const idx = {
+    'NIFTY50':'NSE:NIFTY','NIFTY':'NSE:NIFTY','BANKNIFTY':'NSE:BANKNIFTY','SENSEX':'BSE:SENSEX',
+    'S&P500':'SP:SPX','SP500':'SP:SPX','SPX':'SP:SPX','NASDAQ':'NASDAQ:IXIC','DOW':'DJ:DJI'
+  };
+  if (idx[s]) return idx[s];
+  const us = market ? (market === 'us') : isUS();
+  return us ? s : ('NSE:' + s);   // plain ticker for US, NSE-prefixed for India
+}
+
+function openChart(raw, market) {
+  const tvSym = tvSymbol(raw, market);
+  document.getElementById('chartModalTitle').textContent = '📈 ' + raw + '  ·  ' + tvSym;
+  const link = document.getElementById('chartTvLink');
+  if (link) link.href = 'https://www.tradingview.com/chart/?symbol=' + encodeURIComponent(tvSym);
+  document.getElementById('chartModal').classList.add('show');
+  const host = document.getElementById('tvChartContainer');
+  host.innerHTML = '<div id="tvChart" style="height:100%;width:100%;"></div>';
+  const render = () => {
+    try {
+      new TradingView.widget({
+        autosize: true, symbol: tvSym, interval: 'D', timezone: 'Asia/Kolkata',
+        theme: 'dark', style: '1', locale: 'en', container_id: 'tvChart',
+        hide_side_toolbar: false, allow_symbol_change: true, withdateranges: true
+      });
+    } catch (e) {
+      host.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-secondary)">Could not load chart. <a class="chart-tv-link" target="_blank" rel="noopener" href="https://www.tradingview.com/chart/?symbol=' + encodeURIComponent(tvSym) + '">Open ' + tvSym + ' in TradingView ↗</a></div>';
+    }
+  };
+  if (window.TradingView && window.TradingView.widget) render();
+  else {
+    const sc = document.createElement('script');
+    sc.src = 'https://s3.tradingview.com/tv.js'; sc.async = true;
+    sc.onload = render;
+    sc.onerror = () => { host.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-secondary)">Chart needs internet access. <a class="chart-tv-link" target="_blank" rel="noopener" href="https://www.tradingview.com/chart/?symbol=' + encodeURIComponent(tvSym) + '">Open ' + tvSym + ' in TradingView ↗</a></div>'; };
+    document.head.appendChild(sc);
+  }
+}
+
+function closeChart() {
+  document.getElementById('chartModal').classList.remove('show');
+  document.getElementById('tvChartContainer').innerHTML = '';
+}
+
+// Global delegated click → any element (or ancestor) with data-chart-sym opens its chart.
+// Buttons/links/inputs inside cards keep working (excluded below).
+document.addEventListener('click', (e) => {
+  if (e.target.closest('button, a, input, textarea, select')) return;
+  const el = e.target.closest('[data-chart-sym]');
+  if (!el) return;
+  openChart(el.dataset.chartSym, el.dataset.chartMarket);
+});
+// Close chart on overlay click or Escape
+document.addEventListener('click', (e) => {
+  if (e.target && e.target.id === 'chartModal') closeChart();
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeChart(); });
+
 // ─── AI CHAT ─────────────────────────────────────────────────────────────────
 function appendChatMsg(role, text) {
   const msgs = document.getElementById('chatMessages');
@@ -2268,7 +2361,7 @@ function renderWlStocks() {
           ? `<span class="wl-chg ${chg>=0?'up':'down'}">${chg>=0?'▲':'▼'} ${Math.abs(chg).toFixed(2)}%</span>`
           : '<span style="color:var(--text-secondary)">—</span>';
         return `<tr>
-          <td class="wl-sym">${s.sym}</td>
+          <td class="wl-sym" data-chart-sym="${s.sym}" data-chart-market="${s.market}" title="Click to view ${s.sym} chart">${s.sym}</td>
           <td class="wl-price">${curr}</td>
           <td>${chgHtml}</td>
           <td><span class="wl-mkt-tag ${s.market}">${s.market==='us'?'🇺🇸 US':'🇮🇳 NSE'}</span></td>
@@ -2440,7 +2533,7 @@ function renderVested() {
     const pnl   = value !== null ? value - inv : null;
     const pnlPct= (pnl !== null && inv) ? (pnl / inv * 100) : null;
     return `
-    <div class="position-card">
+    <div class="position-card" data-chart-sym="${v.sym}" title="Click to view ${v.sym} chart">
       <div class="position-header">
         <div><div class="position-symbol">${v.sym}</div><div style="font-size:11px;color:var(--text-secondary)">Vested · US</div></div>
         <div class="position-pnl ${pnl===null?'':(pnl>=0?'profit':'loss')}">${pnl===null ? '<span style="color:var(--text-secondary)">—</span>' : (pnl>=0?'+':'-')+'$'+Math.abs(pnl).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+' ('+(pnlPct>=0?'+':'')+pnlPct.toFixed(2)+'%)'}</div>
