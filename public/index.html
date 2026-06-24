@@ -1323,7 +1323,7 @@ function renderAllTabs() {
       <div class="confidence-bar"><div class="confidence-fill" style="width:${s.conf}%"></div></div>
     </div>`).join('');
   document.getElementById('newsList').innerHTML = DS.news().map(n => `
-    <div class="news-card">
+    <div class="news-card" data-news-url="${n.url||''}" data-news-q="${encodeURIComponent(n.headline)}" title="Open this news">
       <div class="news-impact ${n.impact}"></div>
       <div class="news-content">
         <div class="news-headline">${n.headline}</div>
@@ -1788,8 +1788,9 @@ async function loadLiveNews() {
       : '—';
     const sent   = (n.sentiment || '').toLowerCase();
     const impact = (n.impact || n.category || 'medium').toLowerCase();
+    const url    = n.url || n.link || n.article_url || '';
     return `
-      <div class="news-card">
+      <div class="news-card" data-news-url="${url}" data-news-q="${encodeURIComponent(headline)}" title="Open this news">
         <div class="news-impact ${impact.includes('high')?'high':impact.includes('low')?'low':'medium'}"></div>
         <div class="news-content">
           <div class="news-headline">${headline}</div>
@@ -2168,6 +2169,14 @@ document.addEventListener('click', (e) => {
   const el = e.target.closest('[data-chart-sym]');
   if (!el) return;
   openChart(el.dataset.chartSym, el.dataset.chartMarket);
+});
+// Click a news card → open its article (or a Google News search of the headline)
+document.addEventListener('click', (e) => {
+  const card = e.target.closest('.news-card');
+  if (!card) return;
+  const url = card.dataset.newsUrl;
+  if (url) window.open(url, '_blank', 'noopener');
+  else if (card.dataset.newsQ) window.open('https://news.google.com/search?q=' + card.dataset.newsQ, '_blank', 'noopener');
 });
 // Close chart on overlay click or Escape
 document.addEventListener('click', (e) => {
