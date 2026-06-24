@@ -362,6 +362,26 @@
   .chart-modal-close:hover { background: var(--accent-red); color: #fff; }
   .chart-modal-body { flex: 1; min-height: 0; position: relative; }
 
+  /* HOME PORTFOLIO PANEL */
+  .home-portfolio { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; margin-bottom: 22px; }
+  .hp-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .hp-title { font-size: 16px; font-weight: 700; }
+  .hp-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .hp-connect-btn { background: var(--accent-cyan); color: #000; border: none; border-radius: 8px; padding: 8px 16px; font-weight: 700; font-size: 13px; cursor: pointer; }
+  .hp-connect-btn:hover { filter: brightness(1.1); }
+  .hp-mini-btn { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-secondary); border-radius: 8px; padding: 7px 12px; font-size: 12px; cursor: pointer; }
+  .hp-mini-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+  .hp-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .hp-stat { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+  .hp-stat-label { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+  .hp-stat-val { font-size: 19px; font-weight: 800; margin-top: 4px; }
+  .hp-stat-sub { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+  .hp-body { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  .hp-empty { text-align: center; padding: 24px 16px; color: var(--text-secondary); }
+  .hp-badge { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+  .hp-badge.india { background: rgba(0,212,255,0.12); color: var(--accent-cyan); }
+  .hp-badge.us { background: rgba(168,85,247,0.12); color: var(--accent-purple); }
+
   /* HEADER STOCK SEARCH */
   .stock-search { display: flex; align-items: center; gap: 0; }
   .stock-search-input { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-primary); border-radius: 8px 0 0 8px; padding: 7px 12px; font-size: 13px; width: 180px; outline: none; }
@@ -596,6 +616,17 @@
 
   <!-- TAB PANELS -->
   <div class="tab-panel active" id="tab-signals">
+
+    <!-- HOME PORTFOLIO PANEL (Zerodha by day · Vested by night) -->
+    <div class="home-portfolio" id="homePortfolio">
+      <div class="hp-head">
+        <div class="hp-title" id="hpTitle">💼 My Portfolio</div>
+        <div class="hp-actions" id="hpActions"></div>
+      </div>
+      <div class="hp-summary" id="hpSummary"></div>
+      <div class="hp-body" id="hpBody"></div>
+    </div>
+
     <div class="section-title">🔥 Live Trading Signals</div>
     <div class="signals-grid" id="signalsGrid"></div>
   </div>
@@ -1195,12 +1226,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   initWatchlist();
   initVested();
   initMarketMode();
+  renderHomePortfolio();
+  handleZerodhaCallback();
   startAutoRefresh();
   setTimeout(() => showRiskModal(), 10000);
 });
 
 function loadAllLive() {
   if (isUS()) loadUSSignals(); else loadLiveSignals();
+  renderHomePortfolio();
   loadLiveNews();
   loadLiveIndices();
   loadLiveStats();
@@ -2201,6 +2235,150 @@ function openZerodhaOrder(sym, side, qty) {
   showToast('Opening Zerodha Kite to ' + side + ' ' + sym + ' — review & confirm the order there.', 'success');
 }
 
+// ─── HOME PORTFOLIO (Zerodha by day · Vested by night) ───────────────────────
+let zerodhaConnected = false;
+
+function usd(n){ return '$' + Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function inr(n){ return '₹' + Math.round(Number(n)).toLocaleString('en-IN'); }
+
+function renderHomePortfolio() {
+  const us = isUS();
+  document.getElementById('hpTitle').innerHTML = '💼 My Portfolio ' +
+    (us ? '<span class="hp-badge us">🇺🇸 Vested · US</span>' : '<span class="hp-badge india">🇮🇳 Zerodha · India</span>');
+  if (us) renderVestedHome();
+  else    renderZerodhaHome();
+}
+
+// ----- Night: Vested (manual holdings + live prices) -----
+function renderVestedHome() {
+  document.getElementById('hpActions').innerHTML =
+    `<button class="hp-mini-btn" onclick="switchTab('portfolio')">＋ Manage holdings</button>
+     <button class="hp-mini-btn" onclick="refreshVestedPrices().then(renderHomePortfolio)">🔄 Refresh</button>`;
+  let invv = 0, valv = 0, priced = false;
+  vested.forEach(v => {
+    invv += v.avg * v.qty;
+    const p = vestedPrices[v.sym];
+    if (p) { valv += parseFloat(p.price) * v.qty; priced = true; } else { valv += v.avg * v.qty; }
+  });
+  const pnl = valv - invv, pct = invv ? pnl/invv*100 : 0;
+  document.getElementById('hpSummary').innerHTML = vested.length ? `
+    <div class="hp-stat"><div class="hp-stat-label">Invested</div><div class="hp-stat-val">${usd(invv)}</div><div class="hp-stat-sub">≈ ${inr(invv*vestedInrRate)}</div></div>
+    <div class="hp-stat"><div class="hp-stat-label">Current Value</div><div class="hp-stat-val">${usd(valv)}</div><div class="hp-stat-sub">≈ ${inr(valv*vestedInrRate)}</div></div>
+    <div class="hp-stat"><div class="hp-stat-label">Total P&L</div><div class="hp-stat-val" style="color:${pnl>=0?'var(--accent-green)':'var(--accent-red)'}">${pnl>=0?'+':'-'}${usd(Math.abs(pnl))}</div><div class="hp-stat-sub">${priced?'':'(awaiting prices) '}${pct>=0?'+':''}${pct.toFixed(2)}%</div></div>
+    <div class="hp-stat"><div class="hp-stat-label">Holdings</div><div class="hp-stat-val">${vested.length}</div><div class="hp-stat-sub">US positions</div></div>` : '';
+  const body = document.getElementById('hpBody');
+  if (!vested.length) {
+    body.innerHTML = `<div class="hp-empty" style="grid-column:1/-1;">
+      No Vested holdings yet. <button class="hp-connect-btn" style="margin-left:8px;" onclick="switchTab('portfolio')">Add your holdings</button>
+      <div style="font-size:11px;margin-top:8px;">Vested has no API, so enter your positions once — live prices update automatically.</div></div>`;
+    return;
+  }
+  body.innerHTML = vested.map(v => {
+    const p = vestedPrices[v.sym]; const ltp = p ? parseFloat(p.price) : null;
+    const val = ltp!==null ? ltp*v.qty : null; const invp = v.avg*v.qty;
+    const pl = val!==null ? val-invp : null; const plp = (pl!==null&&invp)?pl/invp*100:null;
+    return `<div class="position-card" data-chart-sym="${v.sym}" title="Click to view ${v.sym} chart">
+      <div class="position-header">
+        <div><div class="position-symbol">${v.sym}</div><div style="font-size:11px;color:var(--text-secondary)">Vested · US</div></div>
+        <div class="position-pnl ${pl===null?'':(pl>=0?'profit':'loss')}">${pl===null?'<span style="color:var(--text-secondary)">—</span>':(pl>=0?'+':'-')+usd(Math.abs(pl))+' ('+(plp>=0?'+':'')+plp.toFixed(2)+'%)'}</div>
+      </div>
+      <div class="position-details">
+        <div class="position-detail">Qty: <span>${v.qty}</span></div>
+        <div class="position-detail">Avg: <span>${usd(v.avg)}</span></div>
+        <div class="position-detail">LTP: <span>${ltp===null?'—':usd(ltp)}</span></div>
+        <div class="position-detail">Value: <span>${val===null?'—':usd(val)}</span></div>
+      </div></div>`;
+  }).join('');
+}
+
+// ----- Day: Zerodha (real holdings via Kite API) -----
+async function renderZerodhaHome() {
+  document.getElementById('hpActions').innerHTML =
+    `<button class="hp-mini-btn" onclick="loadZerodhaHoldings()">🔄 Refresh</button>`;
+  const sum = document.getElementById('hpSummary');
+  const body = document.getElementById('hpBody');
+  if (!state.backendConnected) {
+    sum.innerHTML = '';
+    body.innerHTML = `<div class="hp-empty" style="grid-column:1/-1;">Backend offline — live Zerodha holdings need the backend running.</div>`;
+    return;
+  }
+  sum.innerHTML = '';
+  body.innerHTML = `<div class="hp-empty" style="grid-column:1/-1;"><span class="spin">⟳</span> Loading…</div>`;
+  await loadZerodhaHoldings();
+}
+
+async function loadZerodhaHoldings() {
+  if (!state.backendConnected || isUS()) return;
+  const data = await apiGet('/zerodha/holdings', null);
+  const sum = document.getElementById('hpSummary');
+  const body = document.getElementById('hpBody');
+  if (!data || !data.connected) {
+    zerodhaConnected = false;
+    document.getElementById('hpActions').innerHTML =
+      `<button class="hp-connect-btn" onclick="connectZerodha()">🔗 Connect Zerodha</button>`;
+    sum.innerHTML = '';
+    body.innerHTML = `<div class="hp-empty" style="grid-column:1/-1;">
+      Connect your Zerodha account to see your real holdings live.
+      <div style="font-size:11px;margin-top:8px;">A once-daily login is required (Kite tokens reset each morning).</div></div>`;
+    return;
+  }
+  zerodhaConnected = true;
+  document.getElementById('hpActions').innerHTML =
+    `<button class="hp-mini-btn" onclick="loadZerodhaHoldings()">🔄 Refresh</button>
+     <button class="hp-mini-btn" onclick="disconnectZerodha()">Disconnect</button>`;
+  const h = data.holdings || [];
+  sum.innerHTML = `
+    <div class="hp-stat"><div class="hp-stat-label">Invested</div><div class="hp-stat-val">${inr(data.total_invested)}</div></div>
+    <div class="hp-stat"><div class="hp-stat-label">Current Value</div><div class="hp-stat-val">${inr(data.total_value)}</div></div>
+    <div class="hp-stat"><div class="hp-stat-label">Total P&L</div><div class="hp-stat-val" style="color:${data.total_pnl>=0?'var(--accent-green)':'var(--accent-red)'}">${data.total_pnl>=0?'+':'-'}${inr(Math.abs(data.total_pnl))}</div><div class="hp-stat-sub">${data.total_pnl_pct>=0?'+':''}${data.total_pnl_pct}%</div></div>
+    <div class="hp-stat"><div class="hp-stat-label">Holdings</div><div class="hp-stat-val">${h.length}</div><div class="hp-stat-sub">live · Zerodha</div></div>`;
+  body.innerHTML = h.length ? h.map(p => `
+    <div class="position-card" data-chart-sym="${p.sym}" data-chart-market="india" title="Click to view ${p.sym} chart">
+      <div class="position-header">
+        <div><div class="position-symbol">${p.sym}</div><div style="font-size:11px;color:var(--text-secondary)">${p.sector}</div></div>
+        <div class="position-pnl ${p.pnl>=0?'profit':'loss'}">${p.pnl>=0?'+':'-'}${inr(Math.abs(p.pnl))} (${p.pnlPct>=0?'+':''}${p.pnlPct}%)</div>
+      </div>
+      <div class="position-details">
+        <div class="position-detail">Qty: <span>${p.qty}</span></div>
+        <div class="position-detail">Avg: <span>${inr(p.avg)}</span></div>
+        <div class="position-detail">LTP: <span>${inr(p.ltp)}</span></div>
+        <div class="position-detail">Value: <span>${inr(p.value)}</span></div>
+      </div></div>`).join('')
+    : `<div class="hp-empty" style="grid-column:1/-1;">No holdings in your Zerodha account.</div>`;
+}
+
+async function connectZerodha() {
+  const data = await apiGet('/zerodha/login-url', null);
+  if (data && data.url) { window.location.href = data.url; }
+  else showToast('Could not start Zerodha login — backend offline?', 'warning');
+}
+
+async function disconnectZerodha() {
+  await apiPost('/zerodha/disconnect', {}, null);
+  zerodhaConnected = false;
+  loadZerodhaHoldings();
+  showToast('Zerodha disconnected', 'info');
+}
+
+// Handle the Kite redirect: ...?request_token=XXX&action=login&status=success
+async function handleZerodhaCallback() {
+  const params = new URLSearchParams(window.location.search);
+  const rt = params.get('request_token');
+  if (!rt) return;
+  showToast('Completing Zerodha login…', 'info');
+  // wait briefly for backend detection if needed
+  if (!state.backendConnected) await checkBackend();
+  const res = await apiPost('/zerodha/session', { request_token: rt }, null);
+  // clean the URL so the token isn't left in the address bar
+  window.history.replaceState({}, document.title, window.location.pathname);
+  if (res && res.status === 'ok') {
+    showToast('✅ Zerodha connected — loading your holdings', 'success');
+    renderHomePortfolio();
+  } else {
+    showToast('Zerodha login failed: ' + (res && res.message ? res.message : 'try again'), 'danger');
+  }
+}
+
 // ─── AI CHAT ─────────────────────────────────────────────────────────────────
 function appendChatMsg(role, text) {
   const msgs = document.getElementById('chatMessages');
@@ -2321,6 +2499,7 @@ function applyMarketMode() {
   updateLiveStats();
   syncVestedVisibility();
   if (market === 'us') { renderVested(); if (state.backendConnected) refreshVestedPrices(); }
+  renderHomePortfolio();
 
   // Pull live data for the active market
   if (state.backendConnected) {
