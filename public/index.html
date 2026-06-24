@@ -361,6 +361,18 @@
   .chart-modal-close { background: none; border: 1px solid var(--border); color: var(--text-secondary); width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 14px; }
   .chart-modal-close:hover { background: var(--accent-red); color: #fff; }
   .chart-modal-body { flex: 1; min-height: 0; position: relative; }
+
+  /* HEADER STOCK SEARCH */
+  .stock-search { display: flex; align-items: center; gap: 0; }
+  .stock-search-input { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-primary); border-radius: 8px 0 0 8px; padding: 7px 12px; font-size: 13px; width: 180px; outline: none; }
+  .stock-search-input:focus { border-color: var(--accent-cyan); }
+  .stock-search-btn { background: var(--accent-cyan); color: #000; border: 1px solid var(--accent-cyan); border-radius: 0 8px 8px 0; padding: 7px 14px; font-weight: 700; font-size: 13px; cursor: pointer; }
+  .stock-search-btn:hover { filter: brightness(1.1); }
+
+  /* BUY/SELL badge as a real order button */
+  button.signal-badge { font: inherit; cursor: pointer; outline: none; }
+  button.signal-badge:hover { filter: brightness(1.15); transform: scale(1.04); }
+  button.signal-badge::after { content: ' ↗'; font-size: 0.8em; opacity: 0.7; }
   .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
 
   /* FLOATING ACTION */
@@ -473,6 +485,11 @@
     <div class="stat-pill"><span>Accuracy:</span><span class="value cyan" style="color:var(--accent-cyan)">94%</span></div>
   </div>
   <div class="header-controls">
+    <div class="stock-search">
+      <input type="text" id="stockSearch" class="stock-search-input" placeholder="🔍 Search any stock…"
+             onkeydown="if(event.key==='Enter')doStockSearch()" autocomplete="off">
+      <button class="stock-search-btn" onclick="doStockSearch()">Search</button>
+    </div>
     <span class="time-display" id="clockDisplay">--:--:--</span>
     <button class="btn pulse-btn" onclick="forceRefresh()">🔄 Refresh</button>
     <button class="btn" id="demoBtn" onclick="toggleDemo()">🎮 DEMO</button>
@@ -1233,7 +1250,9 @@ function buildSignalCard(s) {
           <div class="signal-symbol">${s.sym}</div>
           <div class="signal-company">${s.comp}</div>
         </div>
-        <span class="signal-badge ${dir}">${dir.toUpperCase()}</span>
+        ${dir === 'hold'
+          ? `<span class="signal-badge ${dir}">HOLD</span>`
+          : `<button class="signal-badge ${dir}" onclick="event.stopPropagation(); tradeSignal('${s.sym}','${dir}')" title="Place ${dir.toUpperCase()} order for ${s.sym} via your broker">${dir.toUpperCase()}</button>`}
       </div>
       <div class="signal-metrics">
         <div class="signal-metric"><div class="signal-metric-label">Entry Price</div><div class="signal-metric-value cyan">${money(s.price)}</div></div>
@@ -2121,6 +2140,65 @@ document.addEventListener('click', (e) => {
   if (e.target && e.target.id === 'chartModal') closeChart();
 });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeChart(); });
+
+// ─── STOCK SEARCH ────────────────────────────────────────────────────────────
+function doStockSearch() {
+  const inp = document.getElementById('stockSearch');
+  const q = (inp.value || '').trim();
+  if (!q) return;
+  // Open the chart for the searched symbol (works for US, NSE, crypto, indices)
+  openChart(q.toUpperCase());
+  inp.blur();
+}
+
+// ─── BROKER ORDER REDIRECT (user logs in & confirms — we never place trades) ──
+const KITE_API_KEY = '58rfw7ndiljinul2';   // Zerodha Kite app "V3kTradingBot" (publishable api_key)
+
+function tradeSignal(sym, type, market) {
+  const side   = (String(type).toUpperCase() === 'SELL') ? 'SELL' : 'BUY';
+  const isUsMkt = market ? (market === 'us') : isUS();
+  if (isUsMkt) {
+    // Vested has no per-symbol order deep link — open the app to log in and trade
+    window.open('https://app.vestedfinance.com/', '_blank', 'noopener');
+    showToast('Opening Vested — log in, search ' + sym + ', and place your ' + side + ' order.', 'info');
+    return;
+  }
+  openZerodhaOrder(sym, side, 1);
+}
+
+function openZerodhaOrder(sym, side, qty) {
+  // Options/index contracts (have spaces) can't be mapped to a Kite tradingsymbol reliably
+  if (/\s/.test(sym)) {
+    window.open('https://kite.zerodha.com/', '_blank', 'noopener');
+    showToast('Opening Zerodha Kite — search "' + sym + '" to place your ' + side + ' order.', 'info');
+    return;
+  }
+  const data = [{
+    variety: 'regular',
+    tradingsymbol: sym,
+    exchange: 'NSE',
+    transaction_type: side,
+    order_type: 'MARKET',
+    quantity: qty || 1,
+    product: 'CNC',
+    readonly: false
+  }];
+  // Auto-submitting hidden form → Kite basket screen (user logs in & confirms there)
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = 'https://kite.zerodha.com/connect/basket';
+  form.target = '_blank';
+  const addField = (name, value) => {
+    const i = document.createElement('input');
+    i.type = 'hidden'; i.name = name; i.value = value; form.appendChild(i);
+  };
+  addField('api_key', KITE_API_KEY);
+  addField('data', JSON.stringify(data));
+  document.body.appendChild(form);
+  form.submit();
+  document.body.removeChild(form);
+  showToast('Opening Zerodha Kite to ' + side + ' ' + sym + ' — review & confirm the order there.', 'success');
+}
 
 // ─── AI CHAT ─────────────────────────────────────────────────────────────────
 function appendChatMsg(role, text) {
