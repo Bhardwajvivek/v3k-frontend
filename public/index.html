@@ -1203,6 +1203,7 @@ let state = {
 document.addEventListener('DOMContentLoaded', async () => {
   buildTicker();
   renderAllTabs();      // render demo data immediately so page isn't blank
+  loadRealNews(true);   // replace demo news with real latest market news (no backend needed)
   buildNotifications();
   drawPLChart();
   drawSectorHeatmap();
@@ -1440,6 +1441,7 @@ function switchTab(name) {
     if (name === 'watchlist')  fetchWatchlistPrices();
   }
   if (name === 'crypto')    loadLiveCrypto();
+  if (name === 'news')      loadRealNews(true);   // real news needs no backend
   if (name === 'watchlist') { renderWlTabs(); renderWlStocks(); }
 }
 
@@ -1774,7 +1776,72 @@ async function loadLiveSignals() {
   }
 }
 
+// Real, latest market news straight from Google News RSS (no backend needed).
+// Market-aware: Indian market news by day, US market news at night.
+let _newsLoadedAt = 0;
+async function loadRealNews(force) {
+  // throttle to once per 2 min unless forced (e.g. market switch / manual refresh)
+  if (!force && Date.now() - _newsLoadedAt < 120000) return;
+  const us = isUS();
+  const feed = us
+    ? 'https://news.google.com/rss/search?q=(US+stock+market+OR+nasdaq+OR+S%26P+500+OR+wall+street)+when:1d&hl=en-US&gl=US&ceid=US:en'
+    : 'https://news.google.com/rss/search?q=(indian+stock+market+OR+nifty+OR+sensex+OR+NSE)+when:1d&hl=en-IN&gl=IN&ceid=IN:en';
+  let items = null;
+  // Primary: rss2json (CORS-friendly, free; no count param on free tier)
+  try {
+    const r = await fetch('https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(feed), { signal: AbortSignal.timeout(9000) });
+    const j = await r.json();
+    if (j && j.status === 'ok' && Array.isArray(j.items) && j.items.length)
+      items = j.items.map(i => ({ title: i.title, link: i.link, pubDate: i.pubDate, source: i.author || '' }));
+  } catch (e) { console.warn('news rss2json failed', e.message); }
+  // Fallback: raw Google News RSS via CORS proxy, parsed with DOMParser
+  if (!items || !items.length) {
+    try {
+      const r = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(feed), { signal: AbortSignal.timeout(11000) });
+      const xml = await r.text();
+      const doc = new DOMParser().parseFromString(xml, 'text/xml');
+      const nodes = Array.from(doc.querySelectorAll('item'));
+      if (nodes.length) items = nodes.map(it => ({
+        title:   it.querySelector('title')?.textContent || '',
+        link:    it.querySelector('link')?.textContent || '',
+        pubDate: it.querySelector('pubDate')?.textContent || '',
+        source:  it.querySelector('source')?.textContent || ''
+      }));
+    } catch (e) { console.warn('news proxy failed', e.message); }
+  }
+  if (!items || !items.length) return;   // keep whatever is shown (demo) on failure
+  _newsLoadedAt = Date.now();
+
+  const BULL = /(surge|jump|rally|gain|rise|soar|high|beat|up|profit|boost|record|bullish|outperform)/i;
+  const BEAR = /(fall|drop|plunge|slump|loss|cut|down|miss|crash|fear|bearish|decline|sink|weak)/i;
+  document.getElementById('newsList').innerHTML = items.slice(0, 14).map(n => {
+    let headline = (n.title || '—').trim();
+    let source = (n.source || '').trim();
+    // Google News titles end with " - Source"; split it out
+    const dash = headline.lastIndexOf(' - ');
+    if (!source && dash > 0) { source = headline.slice(dash + 3).trim(); headline = headline.slice(0, dash).trim(); }
+    if (!source) source = 'Google News';
+    const time = n.pubDate ? new Date(n.pubDate).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
+    const sent = BEAR.test(headline) && !BULL.test(headline) ? 'bearish' : BULL.test(headline) ? 'bullish' : 'neutral';
+    const impact = /(fed|rbi|crash|record|surge|plunge|rate|inflation|war|results)/i.test(headline) ? 'high' : 'medium';
+    const url = n.link || '';
+    return `
+      <div class="news-card" data-news-url="${url}" data-news-q="${encodeURIComponent(headline)}" title="Open this news">
+        <div class="news-impact ${impact}"></div>
+        <div class="news-content">
+          <div class="news-headline">${headline.replace(/</g,'&lt;')}</div>
+          <div class="news-meta">
+            <span>${source.replace(/</g,'&lt;')}</span><span>${time}</span>
+            <span class="news-sentiment ${sent}">${sent==='bullish'?'↑ Bullish':sent==='bearish'?'↓ Bearish':'→ Neutral'}</span>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
 async function loadLiveNews() {
+  // Prefer real Google News RSS (works without our backend)
+  loadRealNews();
   const data = await apiGet('/market-news', null) || await apiGet('/news', null);
   if (!data) return;
   const articles = data.articles || data.news || data.market_news || (Array.isArray(data) ? data : []);
@@ -2509,6 +2576,7 @@ function applyMarketMode() {
   syncVestedVisibility();
   if (market === 'us') { renderVested(); if (state.backendConnected) refreshVestedPrices(); }
   renderHomePortfolio();
+  if (changed) loadRealNews(true);   // refresh news for the active market (India/US)
 
   // Pull live data for the active market
   if (state.backendConnected) {
