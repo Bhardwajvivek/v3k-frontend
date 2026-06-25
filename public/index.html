@@ -410,7 +410,15 @@
   .plan-btn:hover { filter: brightness(1.08); }
   .pay-summary { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin: 18px 0; font-size: 14px; }
   .pay-methods { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
-  .pay-method { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 12px; flex: 1; text-align: center; min-width: 80px; }
+  .pay-method { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 12px; flex: 1; text-align: center; min-width: 80px; cursor: pointer; color: var(--text-primary); transition: all .15s; }
+  .pay-method:hover { background: var(--bg-hover); }
+  .pay-method.active { border-color: var(--accent-cyan); background: rgba(0,212,255,0.1); color: var(--accent-cyan); }
+  .pay-options { margin-bottom: 14px; }
+  .pay-opt-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; max-height: 180px; overflow-y: auto; padding: 2px; }
+  .pay-opt { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; font-size: 12px; cursor: pointer; flex: 1 1 30%; text-align: center; min-width: 90px; color: var(--text-primary); }
+  .pay-opt:hover { background: var(--bg-hover); }
+  .pay-opt.active { border-color: var(--accent-cyan); background: rgba(0,212,255,0.12); color: var(--accent-cyan); font-weight: 700; }
+  .pay-opt-label { font-size: 11px; color: var(--text-secondary); margin: 6px 2px; }
   .pay-secure { font-size: 12px; color: var(--text-secondary); margin-bottom: 14px; text-align: center; }
   .acct-pill { background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; padding: 4px 12px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
   .acct-pill:hover { background: var(--bg-hover); }
@@ -569,10 +577,14 @@
     <div class="auth-brand"><span class="auth-logo">V3K</span> Complete payment</div>
     <div class="pay-summary" id="paySummary"></div>
     <div class="pay-methods">
-      <div class="pay-method">📱 UPI</div><div class="pay-method">💳 Cards</div>
-      <div class="pay-method">🏦 Net banking</div><div class="pay-method">👛 Wallets</div><div class="pay-method">📅 EMI</div>
+      <button class="pay-method" data-pm="upi"        onclick="selectPayMethod('upi')">📱 UPI</button>
+      <button class="pay-method" data-pm="card"       onclick="selectPayMethod('card')">💳 Cards</button>
+      <button class="pay-method" data-pm="netbanking" onclick="selectPayMethod('netbanking')">🏦 Net banking</button>
+      <button class="pay-method" data-pm="wallet"     onclick="selectPayMethod('wallet')">👛 Wallets</button>
+      <button class="pay-method" data-pm="emi"        onclick="selectPayMethod('emi')">📅 EMI</button>
     </div>
-    <div class="pay-secure">🔒 Secure payment via Razorpay — UPI, Visa/Mastercard/RuPay, all major banks &amp; wallets.</div>
+    <div id="payOptions" class="pay-options"></div>
+    <div class="pay-secure">🔒 Secure payment via Razorpay — your card/UPI/bank details are entered on Razorpay&apos;s encrypted page, never stored here.</div>
     <div class="auth-error" id="payError"></div>
     <button class="auth-primary" id="payBtn" onclick="payNow()">Pay &amp; activate</button>
     <div class="auth-switch"><a onclick="showAuthScreen('plans')">← Back to plans</a></div>
@@ -1464,26 +1476,61 @@ function startTrial() {
   grantAccess();
 }
 
-function choosePlan(plan) { pendingPlan = plan; showAuthScreen('payment'); }
+function choosePlan(plan) { pendingPlan = plan; payMethod = null; payOption = null; showAuthScreen('payment'); }
+
+// ── Payment method picker (the actual credential entry happens on Razorpay) ──
+let payMethod = null, payOption = null;
+const PAY_BANKS = ['HDFC Bank','ICICI Bank','State Bank of India','Axis Bank','Kotak Mahindra','Yes Bank',
+  'IDFC FIRST','IndusInd Bank','Punjab National Bank','Bank of Baroda','Canara Bank','Union Bank',
+  'Federal Bank','RBL Bank','Bank of India','IDBI Bank','Citi Bank','HSBC','Standard Chartered','AU Small Finance'];
+const PAY_UPI    = ['Google Pay','PhonePe','Paytm','BHIM','Amazon Pay','CRED','WhatsApp Pay','Enter UPI ID'];
+const PAY_WALLET = ['Paytm','PhonePe','Amazon Pay','Mobikwik','Freecharge','Airtel Money','Ola Money','JioMoney'];
+const PAY_CARDS  = ['Visa','Mastercard','RuPay','American Express','Diners Club'];
+const PAY_EMI    = ['HDFC Bank','ICICI Bank','SBI Card','Axis Bank','Kotak','Bajaj Finserv','HSBC','Standard Chartered','RBL Bank'];
+
+function selectPayMethod(m) {
+  payMethod = m; payOption = null;
+  document.querySelectorAll('.pay-method').forEach(b => b.classList.toggle('active', b.dataset.pm === m));
+  const box = document.getElementById('payOptions');
+  let label, opts;
+  if (m === 'upi')        { label = 'Choose a UPI app';          opts = PAY_UPI; }
+  else if (m === 'card')  { label = 'We accept (enter details securely on next step)'; opts = PAY_CARDS; }
+  else if (m === 'netbanking') { label = 'Choose your bank';     opts = PAY_BANKS; }
+  else if (m === 'wallet'){ label = 'Choose a wallet';           opts = PAY_WALLET; }
+  else if (m === 'emi')   { label = 'Choose EMI provider (3/6/9/12-month plans on next step)'; opts = PAY_EMI; }
+  box.innerHTML = `<div class="pay-opt-label">${label}</div><div class="pay-opt-grid">` +
+    opts.map(o => `<button class="pay-opt" onclick="selectPayOption(this,'${o.replace(/'/g,"")}')">${o}</button>`).join('') + `</div>`;
+}
+function selectPayOption(el, o) {
+  payOption = o;
+  el.parentElement.querySelectorAll('.pay-opt').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+}
 
 function payNow() {
   const p = PLANS[pendingPlan]; if (!p) return;
   const u = currentUser();
+  const err = document.getElementById('payError'); if (err) err.textContent = '';
+  if (!payMethod) { if (err) err.textContent = 'Please choose a payment method above.'; return; }
+  if (!payOption && payMethod !== 'card') { if (err) err.textContent = 'Please select an option.'; return; }
+
   if (RAZORPAY_KEY_ID && window.Razorpay) {
+    const methodMap = { upi:{upi:true}, card:{card:true}, netbanking:{netbanking:true}, wallet:{wallet:true}, emi:{emi:true} };
     const rzp = new Razorpay({
       key: RAZORPAY_KEY_ID,
       amount: p.inr * 100, currency: 'INR',
-      name: 'V3K AI Trading Bot', description: p.label + ' subscription',
-      prefill: { name: u?.name || '', email: _session() || '' },
+      name: 'V3K AI Trading Bot', description: p.label + ' subscription (' + (payOption||payMethod) + ')',
+      prefill: { name: u?.name || '', email: _session() || '', method: payMethod },
+      method: methodMap[payMethod] || {},
       theme: { color: '#00d4ff' },
       handler: function(resp){ activateSubscription(pendingPlan, resp.razorpay_payment_id); }
     });
-    rzp.on('payment.failed', function(){ document.getElementById('payError').textContent='Payment failed — please try again.'; });
+    rzp.on('payment.failed', function(){ if (err) err.textContent='Payment failed — please try again.'; });
     rzp.open();
   } else {
-    // Demo/trial mode — no Razorpay key configured yet
-    showToast('Demo mode: activating ' + p.label + ' (no real charge — add Razorpay key to go live).', 'info');
-    activateSubscription(pendingPlan, 'demo');
+    // Demo mode — no Razorpay key yet. Show the chosen method, then activate.
+    showToast('Demo: ' + p.label + ' via ' + (payOption || payMethod).toUpperCase() + ' — activating (no real charge until Razorpay key is added).', 'info');
+    activateSubscription(pendingPlan, 'demo:' + payMethod + ':' + (payOption||''));
   }
 }
 
