@@ -363,11 +363,19 @@
   .chart-modal-body { flex: 1; min-height: 0; position: relative; }
 
   /* AUTH / SUBSCRIPTION GATE */
-  .auth-gate { position: fixed; inset: 0; z-index: 5000; display: flex; align-items: center; justify-content: center; padding: 20px; overflow-y: auto; background: #060a12; }
-  .auth-bg { position: absolute; inset: 0; background:
-      radial-gradient(circle at 20% 20%, rgba(0,212,255,0.12), transparent 40%),
-      radial-gradient(circle at 80% 70%, rgba(168,85,247,0.12), transparent 40%); z-index: 0; }
-  .auth-card { position: relative; z-index: 1; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 18px; padding: 32px 28px; width: 100%; max-width: 400px; animation: slideIn 0.3s ease; margin: auto; }
+  .auth-gate { position: fixed; inset: 0; z-index: 5000; display: flex; align-items: center; justify-content: center; padding: 20px; overflow-y: auto; background: radial-gradient(ellipse at 50% 0%, #0c1424 0%, #060a12 60%, #04060c 100%); }
+  .auth-canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; opacity: 0.9; }
+  .auth-grid { position: absolute; inset: 0; z-index: 0; pointer-events: none;
+    background-image: linear-gradient(rgba(0,212,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0,212,255,0.05) 1px, transparent 1px);
+    background-size: 44px 44px; animation: gridMove 14s linear infinite; mask-image: radial-gradient(ellipse at center, #000 30%, transparent 75%); -webkit-mask-image: radial-gradient(ellipse at center, #000 30%, transparent 75%); }
+  @keyframes gridMove { from { background-position: 0 0; } to { background-position: 44px 44px; } }
+  .auth-bg { position: absolute; inset: 0; z-index: 0; pointer-events: none; background:
+      radial-gradient(circle at 18% 22%, rgba(0,212,255,0.16), transparent 42%),
+      radial-gradient(circle at 82% 72%, rgba(168,85,247,0.16), transparent 42%); animation: authGlow 9s ease-in-out infinite alternate; }
+  @keyframes authGlow { 0% { opacity: 0.7; } 100% { opacity: 1; } }
+  .auth-watermark { position: absolute; z-index: 0; font-size: clamp(120px, 28vw, 360px); font-weight: 900; letter-spacing: 8px; color: rgba(255,255,255,0.025);
+    pointer-events: none; user-select: none; text-shadow: 0 0 80px rgba(0,212,255,0.08); animation: authGlow 7s ease-in-out infinite alternate; }
+  .auth-card { position: relative; z-index: 1; background: rgba(17, 24, 33, 0.62); backdrop-filter: blur(22px) saturate(140%); -webkit-backdrop-filter: blur(22px) saturate(140%); border: 1px solid rgba(255,255,255,0.10); border-radius: 20px; padding: 34px 30px; width: 100%; max-width: 400px; animation: slideIn 0.4s ease; margin: auto; box-shadow: 0 24px 70px rgba(0,0,0,0.55), 0 0 0 1px rgba(0,212,255,0.06); }
   .auth-card-wide { max-width: 900px; }
   .auth-brand { font-size: 22px; font-weight: 900; text-align: center; color: #fff; }
   .auth-logo { background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple)); padding: 2px 8px; border-radius: 7px; color: #000; }
@@ -496,7 +504,10 @@
 
 <!-- ══════════════ AUTH / SUBSCRIPTION GATE ══════════════ -->
 <div id="authGate" class="auth-gate">
+  <canvas id="authCanvas" class="auth-canvas"></canvas>
+  <div class="auth-grid"></div>
   <div class="auth-bg"></div>
+  <div class="auth-watermark">V3K</div>
 
   <!-- LOGIN / SIGNUP -->
   <div class="auth-card" id="authScreen-auth">
@@ -1466,12 +1477,14 @@ function activateSubscription(plan, paymentId) {
 function grantAccess() {
   document.getElementById('authGate').style.display = 'none';
   document.body.style.overflow = '';
+  if (_authStop) { _authStop(); _authStop = null; }   // stop canvas animation (save CPU)
   renderAccountPill();
 }
 
 function logoutUser() {
   localStorage.removeItem('v3k_session');
   showAuthScreen('auth'); authTab('login');
+  startAuthBackground();
   showToast('Logged out.', 'info');
 }
 
@@ -1489,8 +1502,51 @@ function renderAccountPill() {
     ' <span style="color:var(--accent-cyan)">· ' + accessLabel(u) + '</span>';
 }
 
+// Animated candlestick chart background for the login screen
+let _authStop = null;
+function startAuthBackground() {
+  const c = document.getElementById('authCanvas');
+  if (!c || _authStop) return;
+  const ctx = c.getContext('2d');
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  let W = 0, H = 0;
+  const resize = () => { W = c.clientWidth; H = c.clientHeight; c.width = W*dpr; c.height = H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0); };
+  resize();
+  window.addEventListener('resize', resize);
+  const CW = 14, GAP = 12, STEP = CW + GAP;
+  let candles = [], last = 100, offset = 0, minP = 0, maxP = 1, running = true;
+  const newC = () => {
+    const o = last, cl = Math.max(25, Math.min(175, o + (Math.random()-0.48)*16));
+    const hi = Math.max(o,cl) + Math.random()*9, lo = Math.min(o,cl) - Math.random()*9;
+    last = cl; return { o, c: cl, h: hi, l: lo };
+  };
+  const recalc = () => { minP = Infinity; maxP = -Infinity; candles.forEach(k => { minP=Math.min(minP,k.l); maxP=Math.max(maxP,k.h); }); };
+  const build = () => { const n = Math.ceil(W/STEP)+3; candles=[]; last=100; for (let i=0;i<n;i++) candles.push(newC()); recalc(); };
+  build();
+  const y = p => { const pad = H*0.2; return H - pad - ((p-minP)/((maxP-minP)||1))*(H - pad*2); };
+  _authStop = () => { running = false; window.removeEventListener('resize', resize); };
+  const draw = () => {
+    if (!running) return;
+    if (c.clientWidth !== W) { resize(); build(); }
+    ctx.clearRect(0,0,W,H);
+    offset -= 0.45;
+    if (offset <= -STEP) { offset += STEP; candles.shift(); candles.push(newC()); recalc(); }
+    for (let i=0;i<candles.length;i++) {
+      const k = candles[i], x = i*STEP + offset, up = k.c >= k.o;
+      const col = up ? 'rgba(0,255,136,0.20)' : 'rgba(255,71,87,0.20)';
+      ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(x+CW/2, y(k.h)); ctx.lineTo(x+CW/2, y(k.l)); ctx.stroke();
+      const yo = y(k.o), yc = y(k.c), top = Math.min(yo,yc), ht = Math.max(2, Math.abs(yc-yo));
+      ctx.fillRect(x, top, CW, ht);
+    }
+    requestAnimationFrame(draw);
+  };
+  requestAnimationFrame(draw);
+}
+
 function initAccess() {
   document.getElementById('authGate').style.display = 'flex';
+  startAuthBackground();
   if (RAZORPAY_KEY_ID) {
     const s=document.createElement('script'); s.src='https://checkout.razorpay.com/v1/checkout.js'; document.head.appendChild(s);
   }
