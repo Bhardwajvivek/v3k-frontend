@@ -822,10 +822,10 @@
   <div class="tab-panel" id="tab-portfolio">
     <div class="section-title">💼 Portfolio Overview</div>
     <div class="risk-grid" style="margin-bottom:20px;">
-      <div class="risk-metric"><div class="risk-metric-name">Capital</div><div class="risk-metric-val good">₹5,00,000</div><div class="risk-metric-sub">Total allocated</div></div>
-      <div class="risk-metric"><div class="risk-metric-name">Deployed</div><div class="risk-metric-val warn">₹2,14,000</div><div class="risk-metric-sub">42.8% of capital</div></div>
-      <div class="risk-metric"><div class="risk-metric-name">Today P&L</div><div class="risk-metric-val good" id="portPnl">+₹4,150</div><div class="risk-metric-sub">+0.83%</div></div>
-      <div class="risk-metric"><div class="risk-metric-name">MTD P&L</div><div class="risk-metric-val good">+₹28,400</div><div class="risk-metric-sub">+5.68%</div></div>
+      <div class="risk-metric"><div class="risk-metric-name">Invested</div><div class="risk-metric-val" id="poInvested">$0.00</div><div class="risk-metric-sub" id="poInvestedInr">≈ ₹0</div></div>
+      <div class="risk-metric"><div class="risk-metric-name">Current Value</div><div class="risk-metric-val" id="poValue">$0.00</div><div class="risk-metric-sub" id="poValueInr">≈ ₹0</div></div>
+      <div class="risk-metric"><div class="risk-metric-name">Today's P&L</div><div class="risk-metric-val" id="portPnl">$0.00</div><div class="risk-metric-sub" id="poTodayPct">0.00%</div></div>
+      <div class="risk-metric"><div class="risk-metric-name">Total P&L</div><div class="risk-metric-val" id="poTotal">$0.00</div><div class="risk-metric-sub" id="poTotalPct">0.00%</div></div>
     </div>
     <div class="portfolio-grid" id="portfolioGrid"></div>
 
@@ -1779,19 +1779,8 @@ function renderAllTabs() {
       <div class="pred-direction ${p.dir}">${p.dir==='up'?'▲ BULLISH':'▼ BEARISH'} → ${p.target}</div>
       <div class="pred-reasoning">${p.reason}</div>
     </div>`).join('');
-  document.getElementById('portfolioGrid').innerHTML = DS.port().map(p => `
-    <div class="position-card" data-chart-sym="${p.sym}" title="Click to view ${p.sym} chart">
-      <div class="position-header">
-        <div><div class="position-symbol">${p.sym}</div><div style="font-size:11px;color:var(--text-secondary)">${p.sector}</div></div>
-        <div class="position-pnl ${p.pnl>=0?'profit':'loss'}">${p.pnl>=0?'+':'-'}${money(Math.abs(p.pnl))} (${p.pnlPct>=0?'+':''}${p.pnlPct}%)</div>
-      </div>
-      <div class="position-details">
-        <div class="position-detail">Qty: <span>${p.qty}</span></div>
-        <div class="position-detail">Avg: <span>${money(p.avg)}</span></div>
-        <div class="position-detail">LTP: <span>${money(p.ltp)}</span></div>
-        <div class="position-detail">Value: <span>${money(p.qty*p.ltp)}</span></div>
-      </div>
-    </div>`).join('');
+  renderUserPortfolioGrid();   // Portfolio Overview shows the user's real holdings
+  syncPortfolioUI();           // and real P&L totals everywhere
   document.getElementById('cryptoGrid').innerHTML = CRYPTO_DATA.map(c => `
     <div class="crypto-card" data-sym="${c.sym}" data-chart-sym="${c.sym}" title="Click to view ${c.sym} chart">
       <div class="crypto-icon">${c.icon}</div>
@@ -2109,16 +2098,12 @@ function startAutoRefresh() {
 
 function updateLiveStats() {
   const us = isUS();
-  const pnl = us ? (2000+Math.floor(Math.random()*500)) : (4000+Math.floor(Math.random()*800));
   const win = 71+Math.floor(Math.random()*5);
-  const pnlStr = '+' + money(pnl);
   document.getElementById('signalCount').textContent = DS.signals().length+Math.floor(Math.random()*3);
-  document.getElementById('pnlVal').textContent = pnlStr;
-  document.getElementById('sc3').textContent = pnlStr;
   document.getElementById('winRate').textContent = win+'%';
   document.getElementById('sc5').textContent = win+'%';
-  document.getElementById('chartPnl').textContent = pnlStr;
-  document.getElementById('portPnl').textContent = pnlStr;
+  syncPortfolioUI();   // P&L stats come from the user's real portfolio, not random
+  // Update mini widget — India indices in day, US indices at night
   // Update mini widget — India indices in day, US indices at night
   if (us) {
     const sp  = (5230+Math.random()*15).toFixed(2);
@@ -3421,8 +3406,79 @@ async function fetchLiveQuotes(items) {
   return out;
 }
 
+// Single source of truth for the user's real portfolio totals
+function computePortfolio() {
+  let invested = 0, value = 0, today = 0, n = 0, priced = false;
+  vested.forEach(v => {
+    const inv = v.avg * v.qty; invested += inv; n++;
+    const p = vestedPrices[v.sym];
+    if (p) {
+      const price = parseFloat(p.price), chg = parseFloat(p.change) || 0;
+      value += price * v.qty;
+      today += price * v.qty * chg / 100;   // today's $ move (Yahoo change = vs prev close)
+      priced = true;
+    } else { value += inv; }
+  });
+  const totalPnl = value - invested;
+  return { invested, value, totalPnl, totalPnlPct: invested ? totalPnl/invested*100 : 0,
+           today, todayPct: value ? today/(value-today)*100 : 0, count: n, priced };
+}
+
+// Drive every P&L stat + Portfolio Overview from the user's real holdings
+function syncPortfolioUI() {
+  const pf = computePortfolio();
+  const money = (n, dec=2) => '$' + Math.abs(n).toLocaleString('en-US', {minimumFractionDigits:dec, maximumFractionDigits:dec});
+  const signed = n => (n >= 0 ? '+' : '-') + money(n);
+  const inr = n => '≈ ₹' + Math.round(n * vestedInrRate).toLocaleString('en-IN');
+  const col = n => n >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+  const todayStr = pf.count ? signed(pf.today) : '$0.00';
+  // Today's P&L — header pill, big stat card, chart label, portfolio-overview card
+  ['pnlVal','sc3','chartPnl','portPnl'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.textContent = todayStr; el.style.color = col(pf.today); }
+  });
+  const set = (id, txt, color) => { const el = document.getElementById(id); if (el) { el.textContent = txt; if (color) el.style.color = color; } };
+  set('sc4', pf.count);                                   // active positions = holdings
+  set('poInvested', money(pf.invested)); set('poInvestedInr', inr(pf.invested));
+  set('poValue', money(pf.value));       set('poValueInr', inr(pf.value));
+  set('poTodayPct', (pf.todayPct>=0?'+':'') + pf.todayPct.toFixed(2) + '%');
+  set('poTotal', signed(pf.totalPnl), col(pf.totalPnl));
+  set('poTotalPct', (pf.totalPnlPct>=0?'+':'') + pf.totalPnlPct.toFixed(2) + '%');
+  renderUserPortfolioGrid();
+}
+
+// Render the user's real holdings into the main Portfolio Overview grid
+function renderUserPortfolioGrid() {
+  const grid = document.getElementById('portfolioGrid');
+  if (!grid) return;
+  if (!vested.length) {
+    grid.innerHTML = `<div class="wl-empty" style="grid-column:1/-1;">
+      <div style="font-size:32px;margin-bottom:8px;">💼</div>
+      <div style="font-size:14px;font-weight:600;">No holdings yet</div>
+      <div style="font-size:12px;margin-top:4px;">Add your positions below to see your live portfolio.</div></div>`;
+    return;
+  }
+  grid.innerHTML = vested.map(v => {
+    const p = vestedPrices[v.sym], ltp = p ? parseFloat(p.price) : null;
+    const val = ltp!==null ? ltp*v.qty : null, inv = v.avg*v.qty;
+    const pl = val!==null ? val-inv : null, plp = (pl!==null&&inv)?pl/inv*100:null;
+    const usd = n => '$'+Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+    return `<div class="position-card" data-chart-sym="${v.sym}" title="Click to view ${v.sym} chart">
+      <div class="position-header">
+        <div><div class="position-symbol">${v.sym}</div><div style="font-size:11px;color:var(--text-secondary)">Vested · US</div></div>
+        <div class="position-pnl ${pl===null?'':(pl>=0?'profit':'loss')}">${pl===null?'<span style="color:var(--text-secondary)">—</span>':(pl>=0?'+':'-')+usd(Math.abs(pl))+' ('+(plp>=0?'+':'')+plp.toFixed(2)+'%)'}</div>
+      </div>
+      <div class="position-details">
+        <div class="position-detail">Qty: <span>${v.qty}</span></div>
+        <div class="position-detail">Avg: <span>${usd(v.avg)}</span></div>
+        <div class="position-detail">LTP: <span>${ltp===null?'—':usd(ltp)}</span></div>
+        <div class="position-detail">Value: <span>${val===null?'—':usd(val)}</span></div>
+      </div></div>`;
+  }).join('');
+}
+
 async function refreshVestedPrices() {
-  if (!vested.length) return;
+  if (!vested.length) { syncPortfolioUI(); return; }
   let q = await fetchLiveQuotes(vested.map(v => ({ sym: v.sym, market: 'us' })));
   if (!Object.keys(q).length && state.backendConnected) {
     const data = await apiPost('/watchlist-prices', { symbols: vested.map(v => v.sym) }, null);
@@ -3432,6 +3488,7 @@ async function refreshVestedPrices() {
     vestedPrices = { ...vestedPrices, ...q };
     renderVested();
     if (typeof renderHomePortfolio === 'function') renderHomePortfolio();
+    syncPortfolioUI();
   }
 }
 
