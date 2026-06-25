@@ -380,7 +380,8 @@
   .auth-brand { font-size: 22px; font-weight: 900; text-align: center; color: #fff; }
   .auth-logo { background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple)); padding: 2px 8px; border-radius: 7px; color: #000; }
   .auth-pro { font-size: 11px; color: var(--accent-cyan); vertical-align: super; }
-  .auth-tagline { text-align: center; color: var(--text-secondary); font-size: 13px; margin: 8px 0 22px; }
+  .auth-tagline { text-align: center; color: var(--text-secondary); font-size: 13px; margin: 8px 0 14px; }
+  .auth-disclaimer { text-align: center; color: var(--accent-yellow); font-size: 10.5px; line-height: 1.5; margin: 0 0 18px; opacity: 0.85; }
   .auth-tabs { display: flex; gap: 8px; margin-bottom: 18px; }
   .auth-tab { flex: 1; padding: 10px; border-radius: 9px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-secondary); font-weight: 700; cursor: pointer; }
   .auth-tab.active { background: var(--accent-cyan); color: #000; border-color: var(--accent-cyan); }
@@ -520,7 +521,8 @@
   <!-- LOGIN / SIGNUP -->
   <div class="auth-card" id="authScreen-auth">
     <div class="auth-brand"><span class="auth-logo">V3K</span> AI Trading Bot <span class="auth-pro">PRO</span></div>
-    <div class="auth-tagline">AI-powered signals · live charts · India &amp; US markets</div>
+    <div class="auth-tagline">AI-powered insights · live charts · India &amp; US markets</div>
+    <div class="auth-disclaimer">⚠️ For educational &amp; informational purposes only. Not investment advice. V3K is not a SEBI-registered adviser. Trade at your own risk.</div>
 
     <div class="auth-tabs">
       <button class="auth-tab active" id="tabLogin" onclick="authTab('login')">Log in</button>
@@ -585,6 +587,7 @@
     </div>
     <div id="payOptions" class="pay-options"></div>
     <div class="pay-secure">🔒 Secure payment via Razorpay — your card/UPI/bank details are entered on Razorpay&apos;s encrypted page, never stored here.</div>
+    <div class="auth-disclaimer" style="margin-bottom:12px;">⚠️ Subscription is for educational/analytics tools only. Not investment advice. Not SEBI-registered. No profit is guaranteed.</div>
     <div class="auth-error" id="payError"></div>
     <button class="auth-primary" id="payBtn" onclick="payNow()">Pay &amp; activate</button>
     <div class="auth-switch"><a onclick="showAuthScreen('plans')">← Back to plans</a></div>
@@ -957,6 +960,12 @@
       <div class="quick-chips" id="quickChipsUs"></div>
     </div>
   </div>
+
+  <footer style="margin-top:28px;padding:16px;border-top:1px solid var(--border);text-align:center;font-size:11px;color:var(--text-secondary);line-height:1.6;">
+    <b style="color:var(--accent-yellow)">⚠️ Disclaimer:</b> V3K AI Trading Bot is an educational &amp; analytics tool. Nothing here is investment, financial, or trading advice.
+    V3K is <b>not a SEBI-registered</b> investment adviser or research analyst. Markets carry risk; you may lose capital. Consult a SEBI-registered adviser before investing. Past performance does not guarantee future results.
+    <div style="margin-top:6px;">© 2026 V3K · For informational use only.</div>
+  </footer>
 
 </main>
 
