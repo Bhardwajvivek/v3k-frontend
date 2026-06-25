@@ -628,7 +628,7 @@
     </div>
   </div>
   <div class="header-stats">
-    <div class="stat-pill green"><span class="live-dot"></span><span>LIVE</span><span class="value" id="mktStatus">OPEN</span></div>
+    <div class="stat-pill green" id="mktPill"><span class="live-dot" id="mktDot"></span><span class="value" id="mktStatus">MARKET</span></div>
     <div class="stat-pill cyan"><span>Signals:</span><span class="value" id="signalCount">24</span></div>
     <div class="stat-pill green"><span>P&L:</span><span class="value" id="pnlVal">+₹4,150</span></div>
     <div class="stat-pill cyan"><span>Win Rate:</span><span class="value" id="winRate">73%</span></div>
@@ -1978,13 +1978,33 @@ function showSettings() {
 }
 
 // ─── CLOCK ───────────────────────────────────────────────────────────────────
+// Is a market trading right now? Uses IST; checks India & US sessions on weekdays.
+function marketStatusNow() {
+  const now = new Date();
+  const istMin = (now.getUTCHours()*60 + now.getUTCMinutes() + 330) % 1440;
+  const istDay = new Date(now.getTime() + 330*60000).getUTCDay();
+  const weekend = (istDay === 0 || istDay === 6);
+  if (!weekend && istMin >= 555 && istMin <= 930) return { open: true,  label: '🇮🇳 NSE OPEN' };
+  if (!weekend && (istMin >= 1140 || istMin <= 90)) return { open: true,  label: '🇺🇸 US OPEN' };
+  return { open: false, label: 'MARKET CLOSED' };
+}
+
+function updateMarketPill() {
+  const s = marketStatusNow();
+  const pill = document.getElementById('mktPill');
+  const dot  = document.getElementById('mktDot');
+  const txt  = document.getElementById('mktStatus');
+  if (txt)  txt.textContent = s.label;
+  if (pill) pill.className = 'stat-pill ' + (s.open ? 'green' : 'red');
+  if (dot)  { dot.style.background = s.open ? 'var(--accent-green)' : 'var(--accent-red)';
+              dot.style.animation = s.open ? 'blink 1.2s infinite' : 'none'; }
+}
+
 function initClock() {
   const update = () => {
     const now = new Date();
     document.getElementById('clockDisplay').textContent = now.toLocaleTimeString('en-IN',{hour12:false});
-    const h = now.getHours(), m = now.getMinutes();
-    const isOpen = (h > 9 || (h===9 && m>=15)) && (h < 15 || (h===15 && m<=30));
-    document.getElementById('mktStatus').textContent = isOpen ? 'OPEN' : 'CLOSED';
+    updateMarketPill();
   };
   update();
   setInterval(update, 1000);
@@ -2255,10 +2275,8 @@ async function loadLiveIndices() {
     document.getElementById('signalCount').textContent = total;
     document.getElementById('sc1').textContent = total;
   }
-  // Market status
-  if (data.market_open !== undefined) {
-    document.getElementById('mktStatus').textContent = data.market_open ? 'OPEN' : 'CLOSED';
-  }
+  // Market status — keep the time-based pill authoritative (avoids LIVE/CLOSED conflicts)
+  updateMarketPill();
 }
 
 async function loadLiveStats() {
