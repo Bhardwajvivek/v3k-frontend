@@ -3151,11 +3151,11 @@ function buildQuickChips() {
 }
 
 async function fetchWatchlistPrices() {
-  const allSyms = [...new Set(watchlists.flatMap(wl => wl.stocks.map(s => s.sym)))];
-  if (!allSyms.length || !state.backendConnected) return;
-  const data = await apiPost('/watchlist-prices', { symbols: allSyms }, null);
-  if (data && data.prices) {
-    wlPrices = data.prices;
+  const items = watchlists.flatMap(wl => wl.stocks.map(s => ({ sym: s.sym, market: s.market })));
+  if (!items.length) return;
+  const q = await fetchLiveQuotes(items);   // client-side Yahoo, no backend needed
+  if (Object.keys(q).length) {
+    wlPrices = { ...wlPrices, ...q };
     renderWlStocks();
   }
 }
@@ -3299,18 +3299,62 @@ function updateVestedTotals() {
   pctEl.textContent = (priced ? '' : '(awaiting live prices) ') + (pnlPct>=0?'+':'') + pnlPct.toFixed(2) + '%';
 }
 
+// ── Client-side live quotes (Yahoo Finance via CORS proxy — no backend needed) ──
+async function fetchYahooQuote(ySym) {
+  const u = 'https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(ySym) + '?interval=1d&range=1d';
+  const enc = encodeURIComponent(u);
+  // Multiple CORS relays — in a real browser these send an Origin header and succeed.
+  const attempts = [
+    { url: 'https://corsproxy.io/?url=' + enc,            wrap: false },
+    { url: 'https://api.allorigins.win/raw?url=' + enc,   wrap: false },
+    { url: 'https://api.allorigins.win/get?url=' + enc,   wrap: true  },
+    { url: 'https://thingproxy.freeboard.io/fetch/' + u,  wrap: false },
+  ];
+  for (const a of attempts) {
+    try {
+      const r = await fetch(a.url, { signal: AbortSignal.timeout(9000) });
+      if (!r.ok) continue;
+      let j = await r.json();
+      if (a.wrap && j && typeof j.contents === 'string') j = JSON.parse(j.contents);
+      const m = j && j.chart && j.chart.result && j.chart.result[0] && j.chart.result[0].meta;
+      if (m && m.regularMarketPrice != null) {
+        const price = m.regularMarketPrice, prev = m.chartPreviousClose || m.previousClose || price;
+        return { price, change: prev ? ((price - prev) / prev * 100) : 0 };
+      }
+    } catch (e) { /* try next relay */ }
+  }
+  return null;
+}
+// items: [{sym, market}] — parallel fetch, returns {sym:{price,change}}
+async function fetchLiveQuotes(items) {
+  const out = {};
+  await Promise.all(items.map(async it => {
+    const y = it.market === 'india' ? it.sym + '.NS' : it.sym;
+    const q = await fetchYahooQuote(y);
+    if (q) out[it.sym] = q;
+  }));
+  return out;
+}
+
 async function refreshVestedPrices() {
   if (!vested.length) return;
-  if (!state.backendConnected) {
-    showToast('Backend offline — P&L will update once live prices are available', 'warning');
-    return;
+  let q = await fetchLiveQuotes(vested.map(v => ({ sym: v.sym, market: 'us' })));
+  if (!Object.keys(q).length && state.backendConnected) {
+    const data = await apiPost('/watchlist-prices', { symbols: vested.map(v => v.sym) }, null);
+    if (data && data.prices) q = data.prices;
   }
-  const syms = vested.map(v => v.sym);
-  const data = await apiPost('/watchlist-prices', { symbols: syms }, null);
-  if (data && data.prices) {
-    vestedPrices = { ...vestedPrices, ...data.prices };
+  if (Object.keys(q).length) {
+    vestedPrices = { ...vestedPrices, ...q };
     renderVested();
+    if (typeof renderHomePortfolio === 'function') renderHomePortfolio();
   }
+}
+
+// Live polling while holdings exist (every 15s — Yahoo near-real-time)
+let _vestedTimer = null;
+function startVestedLive() {
+  if (_vestedTimer) return;
+  _vestedTimer = setInterval(() => { if (vested.length) refreshVestedPrices(); }, 15000);
 }
 
 function initVested() {
@@ -3318,6 +3362,8 @@ function initVested() {
   renderVested();
   // Pick up live USD→INR rate from crypto loader if it ran
   if (typeof cryptoInrRates === 'object' && cryptoInrRates.usd) vestedInrRate = cryptoInrRates.usd;
+  if (vested.length) refreshVestedPrices();   // pull live prices immediately
+  startVestedLive();                          // keep them updating
 }
 
 // Show/hide the Vested section based on market mode; called from applyMarketMode + switchTab
