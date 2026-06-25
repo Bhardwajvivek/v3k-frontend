@@ -362,6 +362,51 @@
   .chart-modal-close:hover { background: var(--accent-red); color: #fff; }
   .chart-modal-body { flex: 1; min-height: 0; position: relative; }
 
+  /* AUTH / SUBSCRIPTION GATE */
+  .auth-gate { position: fixed; inset: 0; z-index: 5000; display: flex; align-items: center; justify-content: center; padding: 20px; overflow-y: auto; background: #060a12; }
+  .auth-bg { position: absolute; inset: 0; background:
+      radial-gradient(circle at 20% 20%, rgba(0,212,255,0.12), transparent 40%),
+      radial-gradient(circle at 80% 70%, rgba(168,85,247,0.12), transparent 40%); z-index: 0; }
+  .auth-card { position: relative; z-index: 1; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 18px; padding: 32px 28px; width: 100%; max-width: 400px; animation: slideIn 0.3s ease; margin: auto; }
+  .auth-card-wide { max-width: 900px; }
+  .auth-brand { font-size: 22px; font-weight: 900; text-align: center; color: #fff; }
+  .auth-logo { background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple)); padding: 2px 8px; border-radius: 7px; color: #000; }
+  .auth-pro { font-size: 11px; color: var(--accent-cyan); vertical-align: super; }
+  .auth-tagline { text-align: center; color: var(--text-secondary); font-size: 13px; margin: 8px 0 22px; }
+  .auth-tabs { display: flex; gap: 8px; margin-bottom: 18px; }
+  .auth-tab { flex: 1; padding: 10px; border-radius: 9px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-secondary); font-weight: 700; cursor: pointer; }
+  .auth-tab.active { background: var(--accent-cyan); color: #000; border-color: var(--accent-cyan); }
+  .auth-input { width: 100%; padding: 12px 14px; margin-bottom: 12px; border-radius: 9px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-primary); font-size: 14px; outline: none; }
+  .auth-input:focus { border-color: var(--accent-cyan); }
+  .auth-primary { width: 100%; padding: 13px; border: none; border-radius: 9px; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple)); color: #000; font-weight: 800; font-size: 15px; cursor: pointer; margin-top: 4px; }
+  .auth-primary:hover { filter: brightness(1.08); }
+  .auth-error { color: var(--accent-red); font-size: 12px; min-height: 16px; margin-bottom: 4px; text-align: center; }
+  .auth-trial-note { font-size: 12px; color: var(--accent-green); text-align: center; margin-top: 14px; }
+  .auth-switch { text-align: center; font-size: 13px; color: var(--text-secondary); margin-top: 16px; }
+  .auth-switch a { color: var(--accent-cyan); cursor: pointer; font-weight: 600; }
+  .plan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; margin: 18px 0; }
+  .plan-card { position: relative; background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 22px 18px; display: flex; flex-direction: column; }
+  .plan-card.popular { border-color: var(--accent-cyan); }
+  .plan-card.best { border-color: var(--accent-purple); }
+  .plan-badge { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: var(--accent-cyan); color: #000; font-size: 10px; font-weight: 800; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
+  .plan-badge.gold { background: linear-gradient(135deg,#ffd700,#ffaa00); }
+  .plan-name { font-size: 15px; font-weight: 700; color: var(--text-secondary); }
+  .plan-price { font-size: 30px; font-weight: 900; color: #fff; margin: 6px 0; }
+  .plan-price span { font-size: 13px; color: var(--text-secondary); font-weight: 500; }
+  .plan-inr { font-size: 12px; color: var(--accent-cyan); margin-bottom: 8px; }
+  .plan-feats { list-style: none; padding: 0; margin: 12px 0; flex: 1; }
+  .plan-feats li { font-size: 12.5px; color: var(--text-secondary); padding: 5px 0 5px 20px; position: relative; }
+  .plan-feats li::before { content: '✓'; position: absolute; left: 0; color: var(--accent-green); font-weight: 800; }
+  .plan-btn { padding: 11px; border: none; border-radius: 9px; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple)); color: #000; font-weight: 800; cursor: pointer; }
+  .plan-btn.ghost { background: var(--bg-secondary); color: var(--accent-cyan); border: 1px solid var(--accent-cyan); }
+  .plan-btn:hover { filter: brightness(1.08); }
+  .pay-summary { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin: 18px 0; font-size: 14px; }
+  .pay-methods { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .pay-method { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 12px; flex: 1; text-align: center; min-width: 80px; }
+  .pay-secure { font-size: 12px; color: var(--text-secondary); margin-bottom: 14px; text-align: center; }
+  .acct-pill { background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; padding: 4px 12px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+  .acct-pill:hover { background: var(--bg-hover); }
+
   /* HOME PORTFOLIO PANEL */
   .home-portfolio { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; margin-bottom: 22px; }
   .hp-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
@@ -448,6 +493,80 @@
 </style>
 </head>
 <body>
+
+<!-- ══════════════ AUTH / SUBSCRIPTION GATE ══════════════ -->
+<div id="authGate" class="auth-gate">
+  <div class="auth-bg"></div>
+
+  <!-- LOGIN / SIGNUP -->
+  <div class="auth-card" id="authScreen-auth">
+    <div class="auth-brand"><span class="auth-logo">V3K</span> AI Trading Bot <span class="auth-pro">PRO</span></div>
+    <div class="auth-tagline">AI-powered signals · live charts · India &amp; US markets</div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tabLogin" onclick="authTab('login')">Log in</button>
+      <button class="auth-tab" id="tabSignup" onclick="authTab('signup')">Sign up</button>
+    </div>
+
+    <div id="signupFields" style="display:none;">
+      <input class="auth-input" id="suName" placeholder="Full name" autocomplete="name">
+    </div>
+    <input class="auth-input" id="auEmail" type="email" placeholder="Email address" autocomplete="email">
+    <input class="auth-input" id="auPass" type="password" placeholder="Password" autocomplete="current-password">
+    <div class="auth-error" id="authError"></div>
+
+    <button class="auth-primary" id="authSubmit" onclick="submitAuth()">Log in</button>
+
+    <div class="auth-trial-note" id="trialNote" style="display:none;">✨ New accounts get a <b>30-day free trial</b> — no card required.</div>
+    <div class="auth-switch" id="authSwitch">New here? <a onclick="authTab('signup')">Start your free trial →</a></div>
+  </div>
+
+  <!-- PLANS -->
+  <div class="auth-card auth-card-wide" id="authScreen-plans" style="display:none;">
+    <div class="auth-brand"><span class="auth-logo">V3K</span> Choose your plan</div>
+    <div class="auth-tagline" id="plansSub">Unlock every signal, chart, and live feed.</div>
+
+    <div class="plan-grid">
+      <div class="plan-card" id="plan-trial">
+        <div class="plan-name">Free Trial</div>
+        <div class="plan-price">₹0 <span>/ 30 days</span></div>
+        <ul class="plan-feats"><li>Full access for 30 days</li><li>All signals &amp; live charts</li><li>No card required</li></ul>
+        <button class="plan-btn ghost" onclick="startTrial()">Start free trial</button>
+      </div>
+      <div class="plan-card popular" id="plan-monthly">
+        <div class="plan-badge">POPULAR</div>
+        <div class="plan-name">Monthly</div>
+        <div class="plan-price">$10 <span>/ month</span></div>
+        <div class="plan-inr">≈ ₹850 billed monthly</div>
+        <ul class="plan-feats"><li>Everything in trial</li><li>Live India + US signals</li><li>Portfolio &amp; broker links</li><li>Cancel anytime</li></ul>
+        <button class="plan-btn" onclick="choosePlan('monthly')">Choose Monthly</button>
+      </div>
+      <div class="plan-card best" id="plan-yearly">
+        <div class="plan-badge gold">BEST VALUE · SAVE 17%</div>
+        <div class="plan-name">Yearly</div>
+        <div class="plan-price">$100 <span>/ year</span></div>
+        <div class="plan-inr">≈ ₹8,500 billed yearly</div>
+        <ul class="plan-feats"><li>Everything in Monthly</li><li>2 months free</li><li>Priority support</li></ul>
+        <button class="plan-btn" onclick="choosePlan('yearly')">Choose Yearly</button>
+      </div>
+    </div>
+    <div class="auth-switch"><a onclick="logoutUser()">← Log out</a></div>
+  </div>
+
+  <!-- PAYMENT -->
+  <div class="auth-card" id="authScreen-payment" style="display:none;">
+    <div class="auth-brand"><span class="auth-logo">V3K</span> Complete payment</div>
+    <div class="pay-summary" id="paySummary"></div>
+    <div class="pay-methods">
+      <div class="pay-method">📱 UPI</div><div class="pay-method">💳 Cards</div>
+      <div class="pay-method">🏦 Net banking</div><div class="pay-method">👛 Wallets</div><div class="pay-method">📅 EMI</div>
+    </div>
+    <div class="pay-secure">🔒 Secure payment via Razorpay — UPI, Visa/Mastercard/RuPay, all major banks &amp; wallets.</div>
+    <div class="auth-error" id="payError"></div>
+    <button class="auth-primary" id="payBtn" onclick="payNow()">Pay &amp; activate</button>
+    <div class="auth-switch"><a onclick="showAuthScreen('plans')">← Back to plans</a></div>
+  </div>
+</div>
 
 <!-- SIDEBAR OVERLAY -->
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
@@ -1199,8 +1318,191 @@ let state = {
   tickerPrices: {}
 };
 
+// ─── AUTH · TRIAL · SUBSCRIPTION ─────────────────────────────────────────────
+// Razorpay: paste your public Key ID here to enable real UPI/card/netbanking
+// payments. Leave empty to run in trial/demo mode (flow works, no real charge).
+const RAZORPAY_KEY_ID = '';            // e.g. 'rzp_live_xxxxxxxx'
+const PLANS = {
+  monthly: { label: 'Monthly', usd: 10,  inr: 850,  days: 30  },
+  yearly:  { label: 'Yearly',  usd: 100, inr: 8500, days: 365 },
+};
+const TRIAL_DAYS = 30;
+let authMode = 'login';
+let pendingPlan = null;
+
+function _users()      { try { return JSON.parse(localStorage.getItem('v3k_users') || '{}'); } catch(e){ return {}; } }
+function _saveUsers(u) { localStorage.setItem('v3k_users', JSON.stringify(u)); }
+function _session()    { return localStorage.getItem('v3k_session') || null; }
+function _hash(s)      { let h=0; for (let i=0;i<s.length;i++){ h=(h<<5)-h+s.charCodeAt(i); h|=0; } return 'h'+h; }
+function currentUser() { const e=_session(); if(!e) return null; return _users()[e] || null; }
+
+function hasAccess(u) {
+  u = u || currentUser();
+  if (!u) return false;
+  const now = Date.now();
+  if (u.subUntil && now < u.subUntil) return true;            // active paid plan
+  if (u.trialStart && now < u.trialStart + TRIAL_DAYS*86400000) return true; // within trial
+  return false;
+}
+function accessLabel(u) {
+  u = u || currentUser(); if (!u) return '';
+  const now = Date.now();
+  if (u.subUntil && now < u.subUntil) {
+    const d = Math.ceil((u.subUntil-now)/86400000);
+    return (u.plan==='yearly'?'Yearly':'Monthly')+' · '+d+'d left';
+  }
+  if (u.trialStart) {
+    const d = Math.ceil((u.trialStart+TRIAL_DAYS*86400000-now)/86400000);
+    return d>0 ? ('Free trial · '+d+'d left') : 'Trial expired';
+  }
+  return '';
+}
+
+function showAuthScreen(name) {
+  ['auth','plans','payment'].forEach(s => {
+    const el = document.getElementById('authScreen-'+s);
+    if (el) el.style.display = (s===name) ? '' : 'none';
+  });
+  document.getElementById('authGate').style.display = 'flex';
+  if (name === 'plans') {
+    const u = currentUser();
+    document.getElementById('plansSub').textContent = hasAccess(u)
+      ? ('Your access: ' + accessLabel(u))
+      : 'Your free trial has ended — pick a plan to continue.';
+    // hide trial option if already used
+    const t = document.getElementById('plan-trial');
+    if (t) t.style.display = (u && u.trialStart) ? 'none' : '';
+  }
+  if (name === 'payment' && pendingPlan) {
+    const p = PLANS[pendingPlan];
+    document.getElementById('paySummary').innerHTML =
+      `<b>${p.label} plan</b> — $${p.usd} <span style="color:var(--text-secondary)">(charged ≈ ₹${p.inr.toLocaleString('en-IN')})</span>` +
+      `<div style="font-size:12px;color:var(--text-secondary);margin-top:6px;">${pendingPlan==='yearly'?'Billed yearly · 2 months free':'Billed monthly · cancel anytime'}</div>`;
+  }
+}
+
+function authTab(mode) {
+  authMode = mode;
+  document.getElementById('tabLogin').classList.toggle('active', mode==='login');
+  document.getElementById('tabSignup').classList.toggle('active', mode==='signup');
+  document.getElementById('signupFields').style.display = mode==='signup' ? '' : 'none';
+  document.getElementById('trialNote').style.display = mode==='signup' ? '' : 'none';
+  document.getElementById('authSubmit').textContent = mode==='signup' ? 'Create account & start trial' : 'Log in';
+  document.getElementById('authSwitch').innerHTML = mode==='signup'
+    ? 'Already have an account? <a onclick="authTab(\'login\')">Log in →</a>'
+    : 'New here? <a onclick="authTab(\'signup\')">Start your free trial →</a>';
+  document.getElementById('authError').textContent = '';
+  document.getElementById('auPass').setAttribute('autocomplete', mode==='signup'?'new-password':'current-password');
+}
+
+function submitAuth() {
+  const err = document.getElementById('authError');
+  const email = (document.getElementById('auEmail').value||'').trim().toLowerCase();
+  const pass  = document.getElementById('auPass').value||'';
+  err.textContent = '';
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { err.textContent='Enter a valid email.'; return; }
+  if (pass.length < 6) { err.textContent='Password must be at least 6 characters.'; return; }
+  const users = _users();
+  if (authMode === 'signup') {
+    const name = (document.getElementById('suName').value||'').trim();
+    if (!name) { err.textContent='Enter your name.'; return; }
+    if (users[email]) { err.textContent='Account exists — please log in.'; return; }
+    users[email] = { name, pass:_hash(pass), trialStart: Date.now(), plan:null, subUntil:null, created: Date.now() };
+    _saveUsers(users);
+    localStorage.setItem('v3k_session', email);
+    showToast('🎉 Welcome! Your 30-day free trial has started.', 'success');
+    grantAccess();
+  } else {
+    const u = users[email];
+    if (!u || u.pass !== _hash(pass)) { err.textContent='Wrong email or password.'; return; }
+    localStorage.setItem('v3k_session', email);
+    if (hasAccess(u)) { grantAccess(); }
+    else { showAuthScreen('plans'); }
+  }
+}
+
+function startTrial() {
+  const u = currentUser(); if (!u) { showAuthScreen('auth'); return; }
+  if (u.trialStart) { showToast('Trial already used — please choose a paid plan.', 'warning'); return; }
+  const users=_users(); users[_session()].trialStart = Date.now(); _saveUsers(users);
+  showToast('🎉 Free trial started — enjoy!', 'success');
+  grantAccess();
+}
+
+function choosePlan(plan) { pendingPlan = plan; showAuthScreen('payment'); }
+
+function payNow() {
+  const p = PLANS[pendingPlan]; if (!p) return;
+  const u = currentUser();
+  if (RAZORPAY_KEY_ID && window.Razorpay) {
+    const rzp = new Razorpay({
+      key: RAZORPAY_KEY_ID,
+      amount: p.inr * 100, currency: 'INR',
+      name: 'V3K AI Trading Bot', description: p.label + ' subscription',
+      prefill: { name: u?.name || '', email: _session() || '' },
+      theme: { color: '#00d4ff' },
+      handler: function(resp){ activateSubscription(pendingPlan, resp.razorpay_payment_id); }
+    });
+    rzp.on('payment.failed', function(){ document.getElementById('payError').textContent='Payment failed — please try again.'; });
+    rzp.open();
+  } else {
+    // Demo/trial mode — no Razorpay key configured yet
+    showToast('Demo mode: activating ' + p.label + ' (no real charge — add Razorpay key to go live).', 'info');
+    activateSubscription(pendingPlan, 'demo');
+  }
+}
+
+function activateSubscription(plan, paymentId) {
+  const p = PLANS[plan]; const users=_users(); const e=_session();
+  if (!users[e]) return;
+  users[e].plan = plan;
+  users[e].subUntil = Date.now() + p.days*86400000;
+  users[e].lastPayment = { id: paymentId, at: Date.now(), amount: p.inr };
+  _saveUsers(users);
+  showToast('✅ ' + p.label + ' plan activated — welcome aboard!', 'success');
+  grantAccess();
+}
+
+function grantAccess() {
+  document.getElementById('authGate').style.display = 'none';
+  document.body.style.overflow = '';
+  renderAccountPill();
+}
+
+function logoutUser() {
+  localStorage.removeItem('v3k_session');
+  showAuthScreen('auth'); authTab('login');
+  showToast('Logged out.', 'info');
+}
+
+function renderAccountPill() {
+  const u = currentUser(); if (!u) return;
+  let pill = document.getElementById('acctPill');
+  const host = document.querySelector('.header-controls');
+  if (!pill && host) {
+    pill = document.createElement('button');
+    pill.id = 'acctPill'; pill.className = 'acct-pill';
+    pill.onclick = () => { showAuthScreen('plans'); };
+    host.appendChild(pill);
+  }
+  if (pill) pill.innerHTML = '👤 ' + (u.name? u.name.split(' ')[0] : 'Account') +
+    ' <span style="color:var(--accent-cyan)">· ' + accessLabel(u) + '</span>';
+}
+
+function initAccess() {
+  document.getElementById('authGate').style.display = 'flex';
+  if (RAZORPAY_KEY_ID) {
+    const s=document.createElement('script'); s.src='https://checkout.razorpay.com/v1/checkout.js'; document.head.appendChild(s);
+  }
+  const u = currentUser();
+  if (u && hasAccess(u)) { grantAccess(); }
+  else if (u) { showAuthScreen('plans'); }
+  else { showAuthScreen('auth'); authTab('login'); }
+}
+
 // ─── INIT ────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
+  initAccess();         // show login/paywall gate first
   buildTicker();
   renderAllTabs();      // render demo data immediately so page isn't blank
   loadRealNews(true);   // replace demo news with real latest market news (no backend needed)
