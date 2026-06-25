@@ -1668,8 +1668,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   initMarketMode();
   renderHomePortfolio();
   handleZerodhaCallback();
+  // Honor saved Demo/Live preference (default: Demo for first-time visitors)
+  state.demo = localStorage.getItem('v3k_live') !== '1';
+  applyDataMode();
   startAutoRefresh();
-  setTimeout(() => showRiskModal(), 10000);
+  if (state.demo) setTimeout(() => showRiskModal(), 10000);
 });
 
 function loadAllLive() {
@@ -1891,19 +1894,59 @@ function toggleNotifPanel() {
 }
 async function toggleDemo() {
   state.demo = !state.demo;
+  localStorage.setItem('v3k_live', state.demo ? '0' : '1');
+  applyDataMode();
+  showToast(state.demo
+    ? '🎮 Demo mode — showing sample data to explore the app.'
+    : '🔴 Live mode — only real market data is shown.', state.demo ? 'info' : 'success');
+  if (!state.demo) { const ok = await checkBackend(); if (ok) { loadLiveSignals(); loadLiveStats(); loadLiveIndices(); } }
+}
+
+// Apply Demo vs Live presentation. Live mode strips all fabricated/sample numbers
+// and shows only genuinely live data (news, crypto, portfolio, charts, market status),
+// with honest empty states where the data backend is still required.
+function applyDataMode() {
+  const live = !state.demo;
   const btn = document.getElementById('demoBtn');
-  btn.textContent = state.demo ? '🎮 DEMO' : '🔴 LIVE';
-  btn.classList.toggle('active', !state.demo);
-  if (state.demo) {
-    showToast('Demo mode — showing simulated signals.', 'info');
-    await apiPost('/toggle-demo-mode', { demo: true });
-    renderAllTabs();
-  } else {
-    showToast('LIVE mode — connecting to backend…', 'success');
-    await apiPost('/toggle-demo-mode', { demo: false });
-    const ok = await checkBackend();
-    if (ok) { loadLiveSignals(); loadLiveStats(); loadLiveIndices(); }
+  if (btn) { btn.textContent = live ? '🔴 LIVE' : '🎮 DEMO'; btn.classList.toggle('active', live); }
+  // floating mode badge
+  let badge = document.getElementById('modeBadge');
+  if (!badge) {
+    badge = document.createElement('div'); badge.id = 'modeBadge';
+    badge.style.cssText = 'position:fixed;bottom:12px;left:12px;z-index:400;font-size:11px;font-weight:800;padding:5px 12px;border-radius:20px;letter-spacing:.5px;';
+    document.body.appendChild(badge);
   }
+  badge.textContent = live ? '🔴 LIVE DATA' : '🎮 DEMO DATA';
+  badge.style.background = live ? 'rgba(255,71,87,0.15)' : 'rgba(255,184,0,0.15)';
+  badge.style.color      = live ? 'var(--accent-red)'    : 'var(--accent-yellow)';
+  badge.style.border     = '1px solid ' + (live ? 'var(--accent-red)' : 'var(--accent-yellow)');
+
+  if (live) renderLiveMode();
+  else { renderAllTabs(); buildNotifications(); drawSectorHeatmap(); syncPortfolioUI(); }
+  // Real data sources run in both modes
+  loadRealNews(true);
+  loadLiveCrypto();
+}
+
+function renderLiveMode() {
+  const wait = '<div class="empty-state">⏳ Live signals appear when the market-data backend is connected.</div>';
+  const none = (m) => '<div class="empty-state">' + m + '</div>';
+  // Fabricated signal/analysis grids → honest empty states (filled by backend if connected)
+  [['signalsGrid',wait],['ultimateGrid',wait],['optionsGrid',wait],['scalpingGrid',wait],
+   ['multitfGrid',wait],['aiScannerList',wait],['predList',none('🔮 Predictions load from the live AI backend.')],
+   ['calendarList',none('📅 Economic calendar loads from the live backend.')],
+   ['sectorHeatmap',none('Sector data loads when the backend is live.')],
+   ['notifList',none('No alerts yet.')]
+  ].forEach(([id,html]) => { const e = document.getElementById(id); if (e) e.innerHTML = html; });
+  // KPIs with no real client-side source → dash (backend fills when live)
+  ['sc2','sc5','winRate'].forEach(id => { const e = document.getElementById(id); if (e) e.textContent = '—'; });
+  const sig = document.getElementById('signalCount'); if (sig) sig.textContent = state.backendConnected ? sig.textContent : '0';
+  const sc1 = document.getElementById('sc1'); if (sc1) sc1.textContent = state.backendConnected ? sc1.textContent : '0';
+  // Genuinely-real data stays
+  renderUserPortfolioGrid();
+  syncPortfolioUI();
+  loadRealIndices();
+  if (state.backendConnected) { loadLiveSignals(); loadLiveStats(); loadLiveIndices(); loadLiveSectors(); loadLivePredictions(); }
 }
 function toggleAuto() {
   state.autoRefresh = !state.autoRefresh;
@@ -2098,31 +2141,35 @@ function startAutoRefresh() {
 
 function updateLiveStats() {
   const us = isUS();
-  const win = 71+Math.floor(Math.random()*5);
-  document.getElementById('signalCount').textContent = DS.signals().length+Math.floor(Math.random()*3);
-  document.getElementById('winRate').textContent = win+'%';
-  document.getElementById('sc5').textContent = win+'%';
   syncPortfolioUI();   // P&L stats come from the user's real portfolio, not random
-  // Update mini widget — India indices in day, US indices at night
-  // Update mini widget — India indices in day, US indices at night
-  if (us) {
-    const sp  = (5230+Math.random()*15).toFixed(2);
-    const ndq = (16410+Math.random()*40).toFixed(2);
-    const dow = (39120+Math.random()*60).toFixed(0);
-    document.getElementById('niftyLive').textContent = parseFloat(sp).toLocaleString('en-US');
-    document.getElementById('bnfLive').textContent = parseFloat(ndq).toLocaleString('en-US');
-    document.getElementById('vixLive').textContent = parseInt(dow).toLocaleString('en-US');
-  } else {
-    const nifty = (24700+Math.random()*50).toFixed(0);
-    const bnf = (52100+Math.random()*150).toFixed(0);
-    const vix = (13.2+Math.random()*0.5).toFixed(1);
-    document.getElementById('niftyLive').textContent = parseInt(nifty).toLocaleString('en-IN');
-    document.getElementById('bnfLive').textContent = parseInt(bnf).toLocaleString('en-IN');
-    document.getElementById('vixLive').textContent = vix;
+  if (state.demo) {    // sample win-rate / signal count only in Demo mode
+    const win = 71+Math.floor(Math.random()*5);
+    document.getElementById('signalCount').textContent = DS.signals().length+Math.floor(Math.random()*3);
+    document.getElementById('winRate').textContent = win+'%';
+    document.getElementById('sc5').textContent = win+'%';
   }
-  // Sentiment gauge
-  const sg = 70+Math.floor(Math.random()*10);
-  document.getElementById('sentGauge').textContent = sg;
+  // Mini-widget indices — sample values only in Demo mode (Live mode fetches real)
+  if (state.demo) {
+    if (us) {
+      document.getElementById('niftyLive').textContent = (5230+Math.random()*15).toFixed(2);
+      document.getElementById('bnfLive').textContent   = (16410+Math.random()*40).toFixed(2);
+      document.getElementById('vixLive').textContent   = (39120+Math.random()*60).toFixed(0);
+    } else {
+      document.getElementById('niftyLive').textContent = parseInt(24700+Math.random()*50).toLocaleString('en-IN');
+      document.getElementById('bnfLive').textContent   = parseInt(52100+Math.random()*150).toLocaleString('en-IN');
+      document.getElementById('vixLive').textContent   = (13.2+Math.random()*0.5).toFixed(1);
+    }
+    document.getElementById('sentGauge').textContent = 70+Math.floor(Math.random()*10);
+  }
+}
+
+// Real index values for the mini-widget (Live mode) — Yahoo via proxy
+async function loadRealIndices() {
+  const us = isUS();
+  const syms = us ? ['^GSPC','^IXIC','^DJI'] : ['^NSEI','^NSEBANK','^INDIAVIX'];
+  const q = await Promise.all(syms.map(s => fetchYahooQuote(s)));
+  const ids = ['niftyLive','bnfLive','vixLive'];
+  q.forEach((r, i) => { const el = document.getElementById(ids[i]); if (el) el.textContent = r ? r.price.toLocaleString(us?'en-US':'en-IN', {maximumFractionDigits:2}) : '—'; });
 }
 
 // ─── BACKEND CHECK ───────────────────────────────────────────────────────────
