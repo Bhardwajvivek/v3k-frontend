@@ -995,6 +995,17 @@
   </div>
 </div>
 
+<!-- OWNER ADMIN PANEL -->
+<div class="chart-modal-overlay" id="adminModal">
+  <div class="chart-modal" style="max-width:900px;height:auto;max-height:88vh;">
+    <div class="chart-modal-header">
+      <div class="chart-modal-title">🛠 Admin · Business Dashboard</div>
+      <button class="chart-modal-close" onclick="closeAdmin()">✕</button>
+    </div>
+    <div class="chart-modal-body" id="adminBody" style="overflow-y:auto;padding:20px;"></div>
+  </div>
+</div>
+
 <script>
 // ─── BACKEND CONFIG ──────────────────────────────────────────────────────────
 // Primary: Render cloud backend. Fallback: localhost dev server.
@@ -1503,8 +1514,8 @@ function logoutUser() {
 
 function renderAccountPill() {
   const u = currentUser(); if (!u) return;
-  let pill = document.getElementById('acctPill');
   const host = document.querySelector('.header-controls');
+  let pill = document.getElementById('acctPill');
   if (!pill && host) {
     pill = document.createElement('button');
     pill.id = 'acctPill'; pill.className = 'acct-pill';
@@ -1513,7 +1524,64 @@ function renderAccountPill() {
   }
   if (pill) pill.innerHTML = '👤 ' + (u.name? u.name.split(' ')[0] : 'Account') +
     ' <span style="color:var(--accent-cyan)">· ' + accessLabel(u) + '</span>';
+  // Owner-only Admin button
+  if (isOwner() && host && !document.getElementById('adminBtn')) {
+    const ab = document.createElement('button');
+    ab.id = 'adminBtn'; ab.className = 'acct-pill'; ab.innerHTML = '🛠 Admin';
+    ab.onclick = openAdmin;
+    host.appendChild(ab);
+  }
 }
+
+// ── Owner Admin / Business dashboard ──
+function openAdmin() {
+  if (!isOwner()) return;
+  const users = _users();
+  const rows = Object.entries(users);
+  const now = Date.now();
+  let trials=0, subs=0, monthly=0, yearly=0, revenueInr=0;
+  const list = rows.map(([email,u]) => {
+    const owner = isOwnerEmail(email);
+    let status, cls;
+    if (owner) { status='Owner · Lifetime'; cls='cyan'; }
+    else if (u.subUntil && now < u.subUntil) {
+      subs++; (u.plan==='yearly'?yearly++:monthly++);
+      const d=Math.ceil((u.subUntil-now)/86400000);
+      status=(u.plan==='yearly'?'Yearly':'Monthly')+' · '+d+'d left'; cls='green';
+    } else if (u.trialStart && now < u.trialStart+TRIAL_DAYS*86400000) {
+      trials++; const d=Math.ceil((u.trialStart+TRIAL_DAYS*86400000-now)/86400000);
+      status='Trial · '+d+'d left'; cls='yellow';
+    } else { status='Expired'; cls='red'; }
+    if (u.lastPayment && u.lastPayment.amount) revenueInr += u.lastPayment.amount;
+    const joined = u.created ? new Date(u.created).toLocaleDateString('en-IN') : '—';
+    return `<tr>
+      <td style="font-weight:600">${u.name||'—'}</td>
+      <td style="color:var(--text-secondary)">${email}</td>
+      <td style="color:var(--accent-${cls})">${status}</td>
+      <td>${joined}</td></tr>`;
+  }).join('');
+  const mrr = monthly*10 + Math.round(yearly*100/12);
+  const card = (label,val,sub) => `<div class="hp-stat"><div class="hp-stat-label">${label}</div><div class="hp-stat-val">${val}</div><div class="hp-stat-sub">${sub||''}</div></div>`;
+  document.getElementById('adminBody').innerHTML = `
+    <div class="hp-summary" style="margin-bottom:18px;">
+      ${card('Total signups', rows.length, '')}
+      ${card('Active trials', trials, 'in 30-day trial')}
+      ${card('Paid subscribers', subs, monthly+' monthly · '+yearly+' yearly')}
+      ${card('Est. revenue', '₹'+revenueInr.toLocaleString('en-IN'), 'collected (this device)')}
+      ${card('Est. MRR', '$'+mrr, 'monthly recurring')}
+    </div>
+    <div style="overflow-x:auto;"><table class="wl-table" style="width:100%">
+      <thead><tr><th>Name</th><th>Email</th><th>Status</th><th>Joined</th></tr></thead>
+      <tbody>${list || '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-secondary)">No signups yet</td></tr>'}</tbody>
+    </table></div>
+    <div style="margin-top:16px;font-size:12px;color:var(--text-secondary);line-height:1.6;">
+      ⚠️ This shows accounts stored <b>on this device only</b> (no backend database yet). Once the Render backend + a real
+      user database are live, this panel will aggregate <b>all customers across every device</b> with real-time revenue,
+      churn, and payment records from Razorpay. <a class="chart-tv-link" onclick="logoutUser();closeAdmin()" style="cursor:pointer">Log out</a>
+    </div>`;
+  document.getElementById('adminModal').classList.add('show');
+}
+function closeAdmin() { document.getElementById('adminModal').classList.remove('show'); }
 
 // Animated candlestick chart background for the login screen
 let _authStop = null;
@@ -1809,11 +1877,11 @@ function switchTab(name) {
     if (name === 'news')       loadLiveNews();
     if (name === 'aiscanner')  { /* triggered by runAiScan button */ }
     if (name === 'risk')       loadLiveRisk();
-    if (name === 'watchlist')  fetchWatchlistPrices();
   }
   if (name === 'crypto')    loadLiveCrypto();
   if (name === 'news')      loadRealNews(true);   // real news needs no backend
-  if (name === 'watchlist') { renderWlTabs(); renderWlStocks(); }
+  if (name === 'watchlist') { renderWlTabs(); renderWlStocks(); fetchWatchlistPrices(); }
+  if (name === 'portfolio' && isUS()) refreshVestedPrices();
 }
 
 // ─── CONTROLS ────────────────────────────────────────────────────────────────
@@ -3096,20 +3164,37 @@ function renderWlStocks() {
   </table>`;
 }
 
-function addStockToWatchlist() {
+async function addStockToWatchlist() {
   const input  = document.getElementById('wlInput');
   const sym    = input.value.trim().toUpperCase().replace(/\s/g,'');
   if (!sym) return;
   const wl = watchlists[activeWl];
   if (wl.stocks.length >= WL_MAX) { showToast('Watchlist full — max ' + WL_MAX + ' stocks', 'warning'); return; }
   if (wl.stocks.find(s => s.sym === sym)) { showToast(sym + ' is already in ' + wl.name, 'info'); return; }
-  const market = (US_SYMS.has(sym) || wlMarket === 'us') ? 'us' : 'india';
+
+  // First-guess market from the toggle / known US set, then auto-correct by probing live quotes
+  let market = (US_SYMS.has(sym) || wlMarket === 'us') ? 'us' : 'india';
   wl.stocks.push({ sym, market });
   saveWatchlists();
   input.value = '';
   renderWlStocks();
-  if (state.backendConnected) fetchWatchlistPrices();
   showToast('✅ ' + sym + ' added to ' + wl.name, 'success');
+
+  const detected = await detectMarket(sym);   // 'us' | 'india' | null
+  const entry = wl.stocks.find(s => s.sym === sym);
+  if (detected && entry && entry.market !== detected) {
+    entry.market = detected; saveWatchlists(); renderWlStocks();
+  }
+  fetchWatchlistPrices();   // live, client-side (no backend needed)
+}
+
+// Auto-detect whether a symbol is US or NSE by which live quote resolves
+async function detectMarket(sym) {
+  const [us, ns] = await Promise.all([ fetchYahooQuote(sym), fetchYahooQuote(sym + '.NS') ]);
+  if (us && !ns) return 'us';
+  if (ns && !us) return 'india';
+  if (us && ns)  return US_SYMS.has(sym) ? 'us' : (wlMarket || 'us'); // ambiguous → honour hint
+  return null;
 }
 
 function quickAddStock(sym, market) {
@@ -3354,7 +3439,10 @@ async function refreshVestedPrices() {
 let _vestedTimer = null;
 function startVestedLive() {
   if (_vestedTimer) return;
-  _vestedTimer = setInterval(() => { if (vested.length) refreshVestedPrices(); }, 15000);
+  _vestedTimer = setInterval(() => {
+    if (vested.length) refreshVestedPrices();
+    if (state.activeTab === 'watchlist') fetchWatchlistPrices();
+  }, 15000);
 }
 
 function initVested() {
