@@ -1338,8 +1338,13 @@ const PLANS = {
   yearly:  { label: 'Yearly',  usd: 100, inr: 8500, days: 365 },
 };
 const TRIAL_DAYS = 30;
+// Owner / admin accounts — always get full lifetime access, bypass trial & payment.
+const OWNER_EMAILS = ['bhardwajvivek.v3@gmail.com'];
 let authMode = 'login';
 let pendingPlan = null;
+
+function isOwnerEmail(e) { return OWNER_EMAILS.includes((e||'').trim().toLowerCase()); }
+function isOwner() { return isOwnerEmail(_session()); }
 
 function _users()      { try { return JSON.parse(localStorage.getItem('v3k_users') || '{}'); } catch(e){ return {}; } }
 function _saveUsers(u) { localStorage.setItem('v3k_users', JSON.stringify(u)); }
@@ -1348,6 +1353,7 @@ function _hash(s)      { let h=0; for (let i=0;i<s.length;i++){ h=(h<<5)-h+s.cha
 function currentUser() { const e=_session(); if(!e) return null; return _users()[e] || null; }
 
 function hasAccess(u) {
+  if (isOwner()) return true;                 // owner: unlimited lifetime access
   u = u || currentUser();
   if (!u) return false;
   const now = Date.now();
@@ -1356,6 +1362,7 @@ function hasAccess(u) {
   return false;
 }
 function accessLabel(u) {
+  if (isOwner()) return 'Owner · Lifetime ∞';
   u = u || currentUser(); if (!u) return '';
   const now = Date.now();
   if (u.subUntil && now < u.subUntil) {
@@ -1424,9 +1431,15 @@ function submitAuth() {
     showToast('🎉 Welcome! Your 30-day free trial has started.', 'success');
     grantAccess();
   } else {
-    const u = users[email];
+    let u = users[email];
+    // Owner can sign in on any device — auto-registers locally on first login
+    if (!u && isOwnerEmail(email)) {
+      users[email] = { name:'Owner', pass:_hash(pass), trialStart:Date.now(), plan:'owner', subUntil:null, created:Date.now() };
+      _saveUsers(users); u = users[email];
+    }
     if (!u || u.pass !== _hash(pass)) { err.textContent='Wrong email or password.'; return; }
     localStorage.setItem('v3k_session', email);
+    if (isOwnerEmail(email)) { showToast('👑 Welcome back, Owner — lifetime access.', 'success'); grantAccess(); return; }
     if (hasAccess(u)) { grantAccess(); }
     else { showAuthScreen('plans'); }
   }
