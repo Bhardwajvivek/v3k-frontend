@@ -498,6 +498,19 @@
   .ov-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); cursor: pointer; transition: all 0.25s; }
   .ov-dot.active { background: var(--accent-cyan); width: 24px; border-radius: 4px; }
 
+  /* HOME HIGHLIGHT CARDS */
+  .hl-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; margin-bottom: 26px; }
+  .hl-card { position: relative; overflow: hidden; background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 18px 20px; cursor: pointer; transition: transform .2s, border-color .2s; box-shadow: var(--card-shadow); }
+  .hl-card:hover { transform: translateY(-4px); border-color: var(--accent-cyan); }
+  .hl-card::after { content:''; position:absolute; inset:0; pointer-events:none; opacity:.6; background: radial-gradient(circle at 90% 8%, var(--hl-glow, rgba(59,157,255,.16)), transparent 55%); }
+  .hl-card > * { position: relative; z-index: 1; }
+  .hl-top { display:flex; align-items:center; justify-content:space-between; }
+  .hl-icon { font-size: 22px; }
+  .hl-tag { font-size: 10px; font-weight: 800; letter-spacing: 1px; color: var(--accent-cyan); text-transform: uppercase; }
+  .hl-title { font-size: 18px; font-weight: 900; margin: 10px 0 6px; letter-spacing: -.3px; }
+  .hl-body { font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; min-height: 36px; }
+  .hl-cta { display: inline-block; margin-top: 12px; font-size: 12px; font-weight: 800; color: var(--accent-cyan); }
+
   .ov-section-title { font-size: 14px; font-weight: 800; margin-bottom: 12px; }
   .tv-box { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; box-shadow: var(--card-shadow); min-height: 380px; }
   .tv-box .tradingview-widget-container, .tv-box .tradingview-widget-container__widget { height: 100%; width: 100%; }
@@ -861,14 +874,8 @@
     <!-- Index overview cards -->
     <div class="ov-grid" id="ovIndices"></div>
 
-    <!-- Auto-rotating highlights carousel -->
-    <div class="ov-slider" id="ovSlider">
-      <div class="ov-progress" id="ovProgress"></div>
-      <button class="ov-nav ov-prev" onclick="goSlide(_ovSlide-1,true)">‹</button>
-      <button class="ov-nav ov-next" onclick="goSlide(_ovSlide+1,true)">›</button>
-      <div class="ov-viewport"><div class="ov-slides" id="ovSlides"></div></div>
-      <div class="ov-dots" id="ovDots"></div>
-    </div>
+    <!-- Live highlight cards -->
+    <div class="hl-grid" id="ovHighlights"></div>
 
     <!-- Markets, everywhere — TradingView Symbol Overview (chart + index chips) -->
     <div class="ov-section-title">📈 Markets, everywhere</div>
@@ -3110,57 +3117,31 @@ function countUp(el, target, loc) {
   requestAnimationFrame(step);
 }
 
-let _ovCount = 0;
+// Live highlight cards (static grid — replaces the old carousel)
 function buildHomeSlides() {
-  const slides = [];
+  const cards = [];
   const sigs = DS.signals();
   if (sigs && sigs.length) { const s = sigs[0]; const d = s.type==='buy'?'Bullish':s.type==='sell'?'Bearish':'Neutral';
-    slides.push({ icon:'🔥', glow:'rgba(239,142,84,.18)', tag:'Top Signal', title:`${s.sym} — ${d}`, body:`Signal strength ${s.str}% · confidence ${s.conf}%. ${s.strat}.`, cta:'View signals', tab:'signals' }); }
-  const nh = document.querySelector('#newsList .news-headline');
-  if (nh) slides.push({ icon:'📰', glow:'rgba(59,157,255,.18)', tag:'Market News', title:'Latest headline', body: nh.textContent, cta:'Read the news', tab:'news' });
+    cards.push({ icon:'🔥', glow:'rgba(239,142,84,.18)', tag:'Top Signal', title:`${s.sym} — ${d}`, body:`Strength ${s.str}% · confidence ${s.conf}%`, cta:'View signals', tab:'signals' }); }
   const pf = computePortfolio();
-  if (pf.count) slides.push({ icon:'💼', glow:'rgba(38,166,154,.18)', tag:'Your Portfolio', title:`${pf.count} holdings · $${pf.value.toLocaleString('en-US',{maximumFractionDigits:2})}`,
-    body:`Today ${pf.today>=0?'+':''}$${Math.abs(pf.today).toFixed(2)} · Total P&L ${pf.totalPnl>=0?'+':''}$${Math.abs(pf.totalPnl).toFixed(2)}.`, cta:'Open portfolio', tab:'portfolio' });
-  else slides.push({ icon:'💼', glow:'rgba(38,166,154,.18)', tag:'Your Portfolio', title:'Track your investments', body:'Add your holdings to see live value and P&L here.', cta:'Add holdings', tab:'portfolio' });
+  if (pf.count) cards.push({ icon:'💼', glow:'rgba(38,166,154,.18)', tag:'Your Portfolio', title:`$${pf.value.toLocaleString('en-US',{maximumFractionDigits:2})}`,
+    body:`${pf.count} holdings · Today ${pf.today>=0?'+':''}$${Math.abs(pf.today).toFixed(2)}`, cta:'Open portfolio', tab:'portfolio' });
+  else cards.push({ icon:'💼', glow:'rgba(38,166,154,.18)', tag:'Your Portfolio', title:'Track investments', body:'Add holdings to see live value & P&L.', cta:'Add holdings', tab:'portfolio' });
+  const nh = document.querySelector('#newsList .news-headline');
+  if (nh) cards.push({ icon:'📰', glow:'rgba(59,157,255,.18)', tag:'Market News', title:'Latest', body: nh.textContent.slice(0,90) + (nh.textContent.length>90?'…':''), cta:'Read news', tab:'news' });
   const cp = document.querySelector('#cryptoGrid .crypto-price');
-  if (cp) slides.push({ icon:'₿', glow:'rgba(126,141,242,.18)', tag:'Crypto', title:'Bitcoin & top coins', body:'BTC ' + cp.textContent + ' · live prices in the Crypto tab.', cta:'View crypto', tab:'crypto' });
-  const ms = marketStatusNow();
-  const mktTitle = ms.open ? (isUS() ? 'US Market is Open' : 'Indian Market is Open') : 'Markets are Closed';
-  slides.push({ icon: ms.open?'🟢':'🌙', glow:'rgba(59,157,255,.14)', tag:'Market Status', title: mktTitle, body: ms.open?'Live data is flowing. Explore signals, charts and your portfolio.':'India 9:15 AM–3:30 PM IST · US 7:00 PM–1:30 AM IST. We switch automatically.', cta:'See watchlist', tab:'watchlist' });
+  if (cp) cards.push({ icon:'₿', glow:'rgba(126,141,242,.18)', tag:'Crypto', title:'BTC ' + cp.textContent, body:'Live crypto prices, 24/7.', cta:'View crypto', tab:'crypto' });
 
-  const wrap = document.getElementById('ovSlides'), dots = document.getElementById('ovDots');
-  if (!wrap) return;
-  _ovCount = slides.length;
-  wrap.innerHTML = slides.map(s =>
-    `<div class="ov-slide" style="--slide-glow:${s.glow}">
-      <div class="ov-slide-main">
-        <div class="ov-slide-icon">${s.icon}</div>
-        <div class="ov-slide-tag">${s.tag}</div>
-        <div class="ov-slide-title">${s.title}</div>
-        <div class="ov-slide-body">${s.body}</div>
-        <div class="ov-slide-cta" onclick="switchTab('${s.tab}')">${s.cta} →</div>
-      </div>
-      <div class="ov-slide-art">${s.icon}</div>
+  const grid = document.getElementById('ovHighlights');
+  if (!grid) return;
+  grid.innerHTML = cards.map(c =>
+    `<div class="hl-card" style="--hl-glow:${c.glow}" onclick="switchTab('${c.tab}')">
+      <div class="hl-top"><span class="hl-tag">${c.tag}</span><span class="hl-icon">${c.icon}</span></div>
+      <div class="hl-title">${c.title}</div>
+      <div class="hl-body">${c.body}</div>
+      <div class="hl-cta">${c.cta} →</div>
     </div>`).join('');
-  dots.innerHTML = slides.map((_,i) => `<div class="ov-dot ${i===0?'active':''}" onclick="goSlide(${i},true)"></div>`).join('');
-  _ovSlide = 0; applySlide(); startOvSlider();
 }
-function applySlide() {
-  const wrap = document.getElementById('ovSlides');
-  if (wrap) wrap.style.transform = 'translateX(' + (-_ovSlide*100) + '%)';
-  document.querySelectorAll('#ovDots .ov-dot').forEach((e,k) => e.classList.toggle('active', k===_ovSlide));
-  // restart progress bar
-  const bar = document.getElementById('ovProgress');
-  if (bar) { bar.style.transition='none'; bar.style.width='0'; void bar.offsetWidth;
-    bar.style.transition='width 5s linear'; bar.style.width='100%'; }
-}
-function goSlide(i, manual) {
-  if (!_ovCount) return;
-  _ovSlide = (i + _ovCount) % _ovCount;
-  applySlide();
-  if (manual) startOvSlider();   // reset timer on manual nav
-}
-function startOvSlider() { if (_ovTimer) clearInterval(_ovTimer); if (_ovCount <= 1) return; _ovTimer = setInterval(() => goSlide(_ovSlide + 1), 5000); }
 
 function renderHomePortfolio() {
   const us = isUS();
