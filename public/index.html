@@ -6,23 +6,51 @@
 <title>V3K AI Trading Bot Pro</title>
 <style>
   :root {
-    --bg-primary: #0d1117;
-    --bg-secondary: #161b22;
-    --bg-card: #1c2333;
-    --bg-hover: #243040;
-    --accent-cyan: #00d4ff;
-    --accent-green: #00ff88;
-    --accent-red: #ff4757;
-    --accent-yellow: #ffd700;
-    --accent-purple: #a855f7;
-    --accent-orange: #ff6b35;
-    --text-primary: #e6edf3;
-    --text-secondary: #8b949e;
-    --border: #30363d;
-    --gradient-main: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
-    --glow-cyan: 0 0 20px rgba(0,212,255,0.3);
-    --glow-green: 0 0 20px rgba(0,255,136,0.3);
+    /* Dark — softened, TradingView-inspired (calm, sober) */
+    --bg-primary: #131722;
+    --bg-secondary: #1a1f2c;
+    --bg-card: #1e2433;
+    --bg-hover: #262d3d;
+    --bg-ticker: #0f1320;
+    --accent-cyan: #3b9dff;
+    --accent-green: #26a69a;
+    --accent-red: #ef5350;
+    --accent-yellow: #e0a93b;
+    --accent-purple: #7e8df2;
+    --accent-orange: #ef8e54;
+    --text-primary: #d6dbe4;
+    --text-secondary: #868fa0;
+    --border: #2a3140;
+    --card-shadow: none;
+    --gradient-main: linear-gradient(135deg, #131722 0%, #1a1f2c 100%);
+    --glow-cyan: 0 0 16px rgba(59,157,255,0.18);
+    --glow-green: 0 0 16px rgba(38,166,154,0.18);
   }
+  /* Light — clean, HDFC-Securities-inspired (white + navy/blue) */
+  body.light {
+    --bg-primary: #eef1f6;
+    --bg-secondary: #ffffff;
+    --bg-card: #ffffff;
+    --bg-hover: #eff3f9;
+    --bg-ticker: #0b2a52;
+    --accent-cyan: #0b5cd5;
+    --accent-green: #0a8f5b;
+    --accent-red: #d83a3a;
+    --accent-yellow: #b9820a;
+    --accent-purple: #5b4ee0;
+    --accent-orange: #d9691c;
+    --text-primary: #1b2533;
+    --text-secondary: #5b6675;
+    --border: #dce2ea;
+    --card-shadow: 0 1px 3px rgba(16,32,64,0.06), 0 1px 2px rgba(16,32,64,0.04);
+    --gradient-main: linear-gradient(135deg, #eef1f6 0%, #ffffff 100%);
+    --glow-cyan: 0 0 0 transparent;
+    --glow-green: 0 0 0 transparent;
+  }
+  body.light .stat-card, body.light .signal-card, body.light .risk-metric,
+  body.light .news-card, body.light .position-card, body.light .scanner-card,
+  body.light .prediction-card, body.light .crypto-card, body.light .home-portfolio,
+  body.light .perf-chart-container, body.light .hp-stat, body.light .cal-item { box-shadow: var(--card-shadow); }
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg-primary); color: var(--text-primary); overflow-x: hidden; }
 
@@ -44,12 +72,12 @@
   .sidebar-overlay.show { display: block; }
 
   /* TICKER */
-  .ticker-bar { background: #0a0e16; border-bottom: 1px solid var(--border); height: 36px; overflow: hidden; position: relative; }
+  .ticker-bar { background: var(--bg-ticker); border-bottom: 1px solid var(--border); height: 36px; overflow: hidden; position: relative; }
   .ticker-track { display: flex; gap: 0; white-space: nowrap; animation: ticker-scroll 45s linear infinite; position: absolute; top: 0; }
   .ticker-track:hover { animation-play-state: paused; }
   .ticker-item { display: inline-flex; align-items: center; gap: 6px; padding: 0 24px; height: 36px; font-size: 12px; border-right: 1px solid #1e2635; }
-  .ticker-symbol { color: var(--accent-cyan); font-weight: 600; }
-  .ticker-price { color: var(--text-primary); }
+  .ticker-symbol { color: #5cb3ff; font-weight: 600; }
+  .ticker-price { color: #e6edf3; }
   .ticker-change.up { color: var(--accent-green); }
   .ticker-change.down { color: var(--accent-red); }
   @keyframes ticker-scroll { 0%{ transform: translateX(0); } 100%{ transform: translateX(-50%); } }
@@ -424,6 +452,35 @@
   .acct-pill { background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; padding: 4px 12px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
   .acct-pill:hover { background: var(--bg-hover); }
 
+  /* HOME / MARKET OVERVIEW */
+  .home-hero { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }
+  .home-hello { font-size: 22px; font-weight: 800; }
+  .home-sub { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+  .home-status { font-size: 13px; font-weight: 700; padding: 8px 16px; border-radius: 24px; border: 1px solid var(--border); background: var(--bg-card); }
+  .ov-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 20px; }
+  .ov-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; box-shadow: var(--card-shadow); }
+  .ov-card-name { font-size: 12px; color: var(--text-secondary); font-weight: 600; }
+  .ov-card-val { font-size: 24px; font-weight: 800; margin-top: 6px; }
+  .ov-card-chg { font-size: 13px; font-weight: 700; margin-top: 2px; }
+  .ov-slider { position: relative; background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 22px 24px; margin-bottom: 24px; overflow: hidden; min-height: 130px; box-shadow: var(--card-shadow); }
+  .ov-slides { position: relative; }
+  .ov-slide { display: none; animation: fadeSlide 0.5s ease; }
+  .ov-slide.active { display: block; }
+  @keyframes fadeSlide { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .ov-slide-tag { font-size: 11px; font-weight: 700; letter-spacing: 0.5px; color: var(--accent-cyan); text-transform: uppercase; }
+  .ov-slide-title { font-size: 18px; font-weight: 800; margin: 8px 0; }
+  .ov-slide-body { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+  .ov-slide-cta { display: inline-block; margin-top: 12px; font-size: 12px; font-weight: 700; color: var(--accent-cyan); cursor: pointer; }
+  .ov-dots { display: flex; gap: 7px; margin-top: 16px; }
+  .ov-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); cursor: pointer; transition: all 0.2s; }
+  .ov-dot.active { background: var(--accent-cyan); width: 22px; border-radius: 4px; }
+  .ov-section-title { font-size: 14px; font-weight: 700; margin-bottom: 12px; color: var(--text-secondary); }
+  .ov-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; }
+  .ov-tile { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 18px 12px; text-align: center; cursor: pointer; transition: all 0.2s; box-shadow: var(--card-shadow); }
+  .ov-tile:hover { background: var(--bg-hover); transform: translateY(-2px); border-color: var(--accent-cyan); }
+  .ov-tile span { font-size: 26px; display: block; margin-bottom: 8px; }
+  .ov-tile div { font-size: 12.5px; font-weight: 600; }
+
   /* HOME PORTFOLIO PANEL */
   .home-portfolio { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; margin-bottom: 22px; }
   .hp-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
@@ -607,7 +664,8 @@
     </div>
   </div>
   <div class="sidebar-nav">
-    <div class="nav-item active" onclick="switchTab('signals');closeSidebar()"><span class="nav-icon">🔥</span> Live Signals</div>
+    <div class="nav-item active" onclick="switchTab('home');closeSidebar()"><span class="nav-icon">🏠</span> Home</div>
+    <div class="nav-item" onclick="switchTab('signals');closeSidebar()"><span class="nav-icon">🔥</span> Live Signals</div>
     <div class="nav-item" onclick="switchTab('ultimate');closeSidebar()"><span class="nav-icon">⭐</span> Ultimate Signals</div>
     <div class="nav-item" onclick="switchTab('options');closeSidebar()"><span class="nav-icon">📊</span> Options</div>
     <div class="nav-item" onclick="switchTab('scalping');closeSidebar()"><span class="nav-icon">⚡</span> Scalping</div>
@@ -656,6 +714,7 @@
       <button class="stock-search-btn" onclick="doStockSearch()">Search</button>
     </div>
     <span class="time-display" id="clockDisplay">--:--:--</span>
+    <button class="btn" id="themeBtn" onclick="toggleTheme()" title="Switch light / dark">🌙 Dark</button>
     <button class="btn pulse-btn" onclick="forceRefresh()">🔄 Refresh</button>
     <button class="btn" id="demoBtn" onclick="toggleDemo()">🎮 DEMO</button>
     <button class="btn success" onclick="runAiScan()">🤖 AI SCAN</button>
@@ -725,7 +784,8 @@
   <!-- TAB NAVIGATION -->
   <div class="tabs-container">
     <div class="tabs-scroll">
-      <button class="tab-btn active" onclick="switchTab('signals')">🔥 Signals</button>
+      <button class="tab-btn active" onclick="switchTab('home')">🏠 Home</button>
+      <button class="tab-btn" onclick="switchTab('signals')">🔥 Signals</button>
       <button class="tab-btn" onclick="switchTab('ultimate')">⭐ Ultimate</button>
       <button class="tab-btn" onclick="switchTab('options')">📊 Options</button>
       <button class="tab-btn" onclick="switchTab('scalping')">⚡ Scalping</button>
@@ -760,7 +820,41 @@
   </div>
 
   <!-- TAB PANELS -->
-  <div class="tab-panel active" id="tab-signals">
+
+  <!-- HOME / MARKET OVERVIEW -->
+  <div class="tab-panel active" id="tab-home">
+    <div class="home-hero">
+      <div>
+        <div class="home-hello" id="homeHello">Welcome back 👋</div>
+        <div class="home-sub" id="homeSub">Here's your market overview.</div>
+      </div>
+      <div class="home-status" id="homeMktStatus"></div>
+    </div>
+
+    <!-- Index overview cards -->
+    <div class="ov-grid" id="ovIndices"></div>
+
+    <!-- Auto-rotating highlights slider -->
+    <div class="ov-slider" id="ovSlider">
+      <div class="ov-slides" id="ovSlides"></div>
+      <div class="ov-dots" id="ovDots"></div>
+    </div>
+
+    <!-- Quick-launch tiles -->
+    <div class="ov-section-title">Explore</div>
+    <div class="ov-tiles">
+      <div class="ov-tile" onclick="switchTab('signals')"><span>🔥</span><div>Market Signals</div></div>
+      <div class="ov-tile" onclick="switchTab('portfolio')"><span>💼</span><div>My Portfolio</div></div>
+      <div class="ov-tile" onclick="switchTab('watchlist')"><span>📋</span><div>Watchlist</div></div>
+      <div class="ov-tile" onclick="switchTab('news')"><span>📰</span><div>Market News</div></div>
+      <div class="ov-tile" onclick="switchTab('crypto')"><span>₿</span><div>Crypto</div></div>
+      <div class="ov-tile" onclick="switchTab('aipred')"><span>🔮</span><div>AI Predictions</div></div>
+      <div class="ov-tile" onclick="switchTab('options')"><span>📊</span><div>Options</div></div>
+      <div class="ov-tile" onclick="switchTab('risk')"><span>🛡️</span><div>Risk</div></div>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tab-signals">
 
     <!-- HOME PORTFOLIO PANEL (Zerodha by day · Vested by night) -->
     <div class="home-portfolio" id="homePortfolio">
@@ -1356,7 +1450,7 @@ let state = {
   notifOpen: false,
   sidebarOpen: false,
   backendConnected: false,
-  activeTab: 'signals',
+  activeTab: 'home',
   autoInterval: null,
   tickerPrices: {}
 };
@@ -1695,6 +1789,7 @@ function initAccess() {
 
 // ─── INIT ────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
+  applyTheme();         // restore saved light/dark theme
   initAccess();         // show login/paywall gate first
   buildTicker();
   renderAllTabs();      // render demo data immediately so page isn't blank
@@ -1727,6 +1822,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Honor saved Demo/Live preference (default: Demo for first-time visitors)
   state.demo = localStorage.getItem('v3k_live') !== '1';
   applyDataMode();
+  const perf = document.getElementById('perfChartSection'); if (perf) perf.style.display = 'none'; // home is default
+  renderHome();
   startAutoRefresh();
   if (state.demo) setTimeout(() => showRiskModal(), 10000);
 });
@@ -1931,6 +2028,8 @@ function switchTab(name) {
   if (name === 'news')      loadRealNews(true);   // real news needs no backend
   if (name === 'watchlist') { renderWlTabs(); renderWlStocks(); fetchWatchlistPrices(); }
   if (name === 'portfolio' && isUS()) refreshVestedPrices();
+  if (name === 'home')      renderHome();
+  else if (_ovTimer) { clearInterval(_ovTimer); _ovTimer = null; }   // pause slider off-home
 }
 
 // ─── CONTROLS ────────────────────────────────────────────────────────────────
@@ -2004,6 +2103,18 @@ function renderLiveMode() {
   syncPortfolioUI();
   loadRealIndices();
   if (state.backendConnected) { loadLiveSignals(); loadLiveStats(); loadLiveIndices(); loadLiveSectors(); loadLivePredictions(); }
+}
+function applyTheme() {
+  const light = localStorage.getItem('v3k_theme') === 'light';
+  document.body.classList.toggle('light', light);
+  const btn = document.getElementById('themeBtn');
+  if (btn) btn.textContent = light ? '☀️ Light' : '🌙 Dark';
+}
+function toggleTheme() {
+  const light = localStorage.getItem('v3k_theme') !== 'light';
+  localStorage.setItem('v3k_theme', light ? 'light' : 'dark');
+  applyTheme();
+  showToast(light ? '☀️ Light theme' : '🌙 Dark theme', 'info');
 }
 function toggleAuto() {
   state.autoRefresh = !state.autoRefresh;
@@ -2862,6 +2973,57 @@ let zerodhaConnected = false;
 
 function usd(n){ return '$' + Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function inr(n){ return '₹' + Math.round(Number(n)).toLocaleString('en-IN'); }
+
+// ─── HOME / MARKET OVERVIEW ──────────────────────────────────────────────────
+let _ovSlide = 0, _ovTimer = null;
+function renderHome() {
+  const u = currentUser();
+  const hello = document.getElementById('homeHello');
+  if (hello) hello.textContent = 'Welcome' + (u && u.name ? ', ' + u.name.split(' ')[0] : '') + ' 👋';
+  const ms = marketStatusNow();
+  const st = document.getElementById('homeMktStatus');
+  if (st) { st.textContent = ms.open ? ('🟢 ' + ms.label) : '🔴 Markets Closed';
+            st.style.color = ms.open ? 'var(--accent-green)' : 'var(--accent-red)'; }
+  const us = isUS();
+  const names = us ? ['S&P 500','NASDAQ','DOW'] : ['NIFTY 50','BANK NIFTY','INDIA VIX'];
+  const ids = ['niftyLive','bnfLive','vixLive'];
+  const ov = document.getElementById('ovIndices');
+  if (ov) ov.innerHTML = names.map((n,i) => {
+    const v = (document.getElementById(ids[i]) || {}).textContent || '—';
+    return `<div class="ov-card"><div class="ov-card-name">${n}</div><div class="ov-card-val">${v}</div><div class="ov-card-chg" style="color:var(--text-secondary)">● live</div></div>`;
+  }).join('');
+  if (!state.demo) loadRealIndices();
+  buildHomeSlides();
+}
+
+function buildHomeSlides() {
+  const slides = [];
+  const sigs = DS.signals();
+  if (sigs && sigs.length) { const s = sigs[0]; const d = s.type==='buy'?'Bullish':s.type==='sell'?'Bearish':'Neutral';
+    slides.push({ tag:'Top Signal', title:`${s.sym} — ${d}`, body:`Signal strength ${s.str}% · confidence ${s.conf}%. ${s.strat}.`, cta:'View signals', tab:'signals' }); }
+  const nh = document.querySelector('#newsList .news-headline');
+  if (nh) slides.push({ tag:'Market News', title:'Latest headline', body: nh.textContent, cta:'Read the news', tab:'news' });
+  const pf = computePortfolio();
+  if (pf.count) slides.push({ tag:'Your Portfolio', title:`${pf.count} holdings · $${pf.value.toLocaleString('en-US',{maximumFractionDigits:2})}`,
+    body:`Today ${pf.today>=0?'+':''}$${Math.abs(pf.today).toFixed(2)} · Total P&L ${pf.totalPnl>=0?'+':''}$${Math.abs(pf.totalPnl).toFixed(2)}.`, cta:'Open portfolio', tab:'portfolio' });
+  else slides.push({ tag:'Your Portfolio', title:'Track your investments', body:'Add your holdings to see live value and P&L here.', cta:'Add holdings', tab:'portfolio' });
+  const cp = document.querySelector('#cryptoGrid .crypto-price');
+  if (cp) slides.push({ tag:'Crypto', title:'Bitcoin & top coins', body:'BTC ' + cp.textContent + ' · live prices in the Crypto tab.', cta:'View crypto', tab:'crypto' });
+
+  const wrap = document.getElementById('ovSlides'), dots = document.getElementById('ovDots');
+  if (!wrap) return;
+  wrap.innerHTML = slides.map((s,i) =>
+    `<div class="ov-slide ${i===0?'active':''}"><div class="ov-slide-tag">${s.tag}</div><div class="ov-slide-title">${s.title}</div><div class="ov-slide-body">${s.body}</div><div class="ov-slide-cta" onclick="switchTab('${s.tab}')">${s.cta} →</div></div>`).join('');
+  dots.innerHTML = slides.map((_,i) => `<div class="ov-dot ${i===0?'active':''}" onclick="goSlide(${i})"></div>`).join('');
+  _ovSlide = 0; startOvSlider(slides.length);
+}
+function goSlide(i) {
+  const sl = document.querySelectorAll('#ovSlides .ov-slide'), dt = document.querySelectorAll('#ovDots .ov-dot');
+  if (!sl.length) return; _ovSlide = (i + sl.length) % sl.length;
+  sl.forEach((e,k) => e.classList.toggle('active', k===_ovSlide));
+  dt.forEach((e,k) => e.classList.toggle('active', k===_ovSlide));
+}
+function startOvSlider(n) { if (_ovTimer) clearInterval(_ovTimer); if (n <= 1) return; _ovTimer = setInterval(() => goSlide(_ovSlide + 1), 5000); }
 
 function renderHomePortfolio() {
   const us = isUS();
