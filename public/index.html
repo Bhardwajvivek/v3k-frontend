@@ -3077,15 +3077,22 @@ function mountMarketWidgets() {
   if (_tvMounted === key) return;   // avoid re-mount churn
   _tvMounted = key;
 
-  // Use freely-embeddable ETF symbols (NSE/BSE indices are restricted in the free widget → blank).
-  const inSyms = [
-    ['India (INDA)','AMEX:INDA|1D'], ['S&P 500','AMEX:SPY|1D'], ['Nasdaq 100','NASDAQ:QQQ|1D'],
-    ['Dow','AMEX:DIA|1D'], ['Bitcoin','BINANCE:BTCUSDT|1D'], ['Gold','TVC:GOLD|1D']
+  // Freely-embeddable symbols only. NSE/BSE *index* symbols (NIFTY/BANKNIFTY) are paywalled in
+  // the free widget → blank; India shown via INDA ETF + top NSE stocks (which DO render).
+  const INDIA = [
+    ['India (INDA)','AMEX:INDA|1D'], ['Reliance','NSE:RELIANCE|1D'], ['HDFC Bank','NSE:HDFCBANK|1D'], ['Infosys','NSE:INFY|1D']
   ];
-  const usSyms = [
-    ['S&P 500','AMEX:SPY|1D'], ['Nasdaq 100','NASDAQ:QQQ|1D'], ['Dow','AMEX:DIA|1D'],
-    ['India (INDA)','AMEX:INDA|1D'], ['Bitcoin','BINANCE:BTCUSDT|1D'], ['Gold','TVC:GOLD|1D']
+  const US = [
+    ['S&P 500','TVC:SPX|1D'], ['Nasdaq 100','TVC:NDX|1D'], ['Dow Jones','TVC:DJI|1D'], ['Russell 2000','TVC:RUT|1D']
   ];
+  const GLOBAL = [
+    ['FTSE 100','TVC:UKX|1D'], ['DAX','TVC:DAX|1D'], ['Nikkei 225','TVC:NI225|1D'], ['Hang Seng','TVC:HSI|1D'], ['CAC 40','TVC:CAC40|1D']
+  ];
+  const COMMOD = [
+    ['Crude Oil','TVC:USOIL|1D'], ['Gold','TVC:GOLD|1D'], ['Silver','TVC:SILVER|1D'], ['Bitcoin','BINANCE:BTCUSDT|1D'], ['Ethereum','BINANCE:ETHUSDT|1D']
+  ];
+  const inSyms = [...INDIA, ...US, ...GLOBAL, ...COMMOD];
+  const usSyms = [...US, ...INDIA, ...GLOBAL, ...COMMOD];
   mountTVWidget('tvSymbolOverview', 'https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js', {
     symbols: isUS() ? usSyms : inSyms,
     chartOnly: false, width: '100%', height: 400, locale: 'en',
