@@ -452,34 +452,56 @@
   .acct-pill { background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; padding: 4px 12px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
   .acct-pill:hover { background: var(--bg-hover); }
 
-  /* HOME / MARKET OVERVIEW */
-  .home-hero { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }
-  .home-hello { font-size: 22px; font-weight: 800; }
-  .home-sub { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
-  .home-status { font-size: 13px; font-weight: 700; padding: 8px 16px; border-radius: 24px; border: 1px solid var(--border); background: var(--bg-card); }
-  .ov-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 20px; }
-  .ov-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; box-shadow: var(--card-shadow); }
-  .ov-card-name { font-size: 12px; color: var(--text-secondary); font-weight: 600; }
-  .ov-card-val { font-size: 24px; font-weight: 800; margin-top: 6px; }
-  .ov-card-chg { font-size: 13px; font-weight: 700; margin-top: 2px; }
-  .ov-slider { position: relative; background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 22px 24px; margin-bottom: 24px; overflow: hidden; min-height: 130px; box-shadow: var(--card-shadow); }
-  .ov-slides { position: relative; }
-  .ov-slide { display: none; animation: fadeSlide 0.5s ease; }
-  .ov-slide.active { display: block; }
-  @keyframes fadeSlide { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-  .ov-slide-tag { font-size: 11px; font-weight: 700; letter-spacing: 0.5px; color: var(--accent-cyan); text-transform: uppercase; }
-  .ov-slide-title { font-size: 18px; font-weight: 800; margin: 8px 0; }
-  .ov-slide-body { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
-  .ov-slide-cta { display: inline-block; margin-top: 12px; font-size: 12px; font-weight: 700; color: var(--accent-cyan); cursor: pointer; }
-  .ov-dots { display: flex; gap: 7px; margin-top: 16px; }
-  .ov-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); cursor: pointer; transition: all 0.2s; }
-  .ov-dot.active { background: var(--accent-cyan); width: 22px; border-radius: 4px; }
-  .ov-section-title { font-size: 14px; font-weight: 700; margin-bottom: 12px; color: var(--text-secondary); }
-  .ov-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; }
-  .ov-tile { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 18px 12px; text-align: center; cursor: pointer; transition: all 0.2s; box-shadow: var(--card-shadow); }
-  .ov-tile:hover { background: var(--bg-hover); transform: translateY(-2px); border-color: var(--accent-cyan); }
-  .ov-tile span { font-size: 26px; display: block; margin-bottom: 8px; }
-  .ov-tile div { font-size: 12.5px; font-weight: 600; }
+  /* HOME / MARKET OVERVIEW — premium animated */
+  .home-hero { position: relative; overflow: hidden; display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+    margin-bottom: 22px; padding: 26px 28px; border-radius: 18px; border: 1px solid var(--border); background: var(--bg-card); box-shadow: var(--card-shadow); }
+  .home-hero::before { content:''; position:absolute; inset:0; z-index:0; pointer-events:none;
+    background: radial-gradient(circle at 12% 20%, rgba(59,157,255,0.18), transparent 45%),
+                radial-gradient(circle at 88% 80%, rgba(126,141,242,0.16), transparent 45%),
+                radial-gradient(circle at 60% 10%, rgba(38,166,154,0.12), transparent 40%);
+    background-size: 200% 200%; animation: heroAurora 12s ease-in-out infinite; }
+  @keyframes heroAurora { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+  .home-hero > * { position: relative; z-index: 1; }
+  .home-hello { font-size: 26px; font-weight: 900; letter-spacing:-.3px; }
+  .home-sub { font-size: 13px; color: var(--text-secondary); margin-top: 5px; }
+  .home-status { font-size: 13px; font-weight: 800; padding: 9px 18px; border-radius: 24px; border: 1px solid var(--border); background: var(--bg-secondary); backdrop-filter: blur(6px); }
+
+  .ov-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-bottom: 22px; }
+  .ov-card { position: relative; overflow: hidden; background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; box-shadow: var(--card-shadow); transition: transform .2s, border-color .2s; }
+  .ov-card:hover { transform: translateY(-3px); border-color: var(--accent-cyan); }
+  .ov-card-name { font-size: 12px; color: var(--text-secondary); font-weight: 700; letter-spacing:.3px; }
+  .ov-card-val { font-size: 25px; font-weight: 900; margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .ov-card-chg { font-size: 12.5px; font-weight: 700; margin-top: 2px; }
+  .ov-spark { position:absolute; right:0; bottom:0; width:100%; height:42px; opacity:.55; }
+
+  .ov-slider { position: relative; border: 1px solid var(--border); border-radius: 18px; margin-bottom: 26px; overflow: hidden; box-shadow: var(--card-shadow); background: var(--bg-card); }
+  .ov-progress { position:absolute; top:0; left:0; height:3px; width:0; z-index:3; background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple)); }
+  .ov-viewport { overflow: hidden; }
+  .ov-slides { display: flex; transition: transform .6s cubic-bezier(.4,0,.2,1); }
+  .ov-slide { min-width: 100%; padding: 30px 30px 34px; box-sizing: border-box; position: relative; }
+  .ov-slide::after { content:''; position:absolute; inset:0; pointer-events:none; opacity:.5;
+    background: radial-gradient(circle at 85% 30%, var(--slide-glow, rgba(59,157,255,.16)), transparent 55%); }
+  .ov-slide > * { position: relative; z-index:1; }
+  .ov-slide-icon { font-size: 30px; margin-bottom: 6px; }
+  .ov-slide-tag { font-size: 11px; font-weight: 800; letter-spacing: 1px; color: var(--accent-cyan); text-transform: uppercase; }
+  .ov-slide-title { font-size: 22px; font-weight: 900; margin: 8px 0; letter-spacing:-.3px; }
+  .ov-slide-body { font-size: 13.5px; color: var(--text-secondary); line-height: 1.6; max-width: 640px; }
+  .ov-slide-cta { display: inline-block; margin-top: 14px; font-size: 12.5px; font-weight: 800; color: #000; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple)); padding: 9px 18px; border-radius: 9px; cursor: pointer; }
+  .ov-slide-cta:hover { filter: brightness(1.08); }
+  .ov-nav { position:absolute; top:50%; transform:translateY(-50%); z-index:3; width:34px; height:34px; border-radius:50%; border:1px solid var(--border); background:var(--bg-secondary); color:var(--text-primary); cursor:pointer; font-size:15px; opacity:.8; }
+  .ov-nav:hover { opacity:1; border-color:var(--accent-cyan); }
+  .ov-prev { left:14px; } .ov-next { right:14px; }
+  .ov-dots { display: flex; gap: 7px; justify-content:center; padding: 0 0 16px; }
+  .ov-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); cursor: pointer; transition: all 0.25s; }
+  .ov-dot.active { background: var(--accent-cyan); width: 24px; border-radius: 4px; }
+
+  .ov-section-title { font-size: 14px; font-weight: 800; margin-bottom: 12px; }
+  .ov-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 12px; }
+  .ov-tile { position:relative; overflow:hidden; background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 20px 12px; text-align: center; cursor: pointer; transition: all 0.22s; box-shadow: var(--card-shadow); }
+  .ov-tile:hover { transform: translateY(-4px); border-color: var(--accent-cyan); box-shadow: 0 8px 22px rgba(0,0,0,.18); }
+  .ov-tile span { font-size: 27px; display: block; margin-bottom: 8px; transition: transform .22s; }
+  .ov-tile:hover span { transform: scale(1.18); }
+  .ov-tile div { font-size: 12.5px; font-weight: 700; }
 
   /* HOME PORTFOLIO PANEL */
   .home-portfolio { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; margin-bottom: 22px; }
@@ -834,9 +856,12 @@
     <!-- Index overview cards -->
     <div class="ov-grid" id="ovIndices"></div>
 
-    <!-- Auto-rotating highlights slider -->
+    <!-- Auto-rotating highlights carousel -->
     <div class="ov-slider" id="ovSlider">
-      <div class="ov-slides" id="ovSlides"></div>
+      <div class="ov-progress" id="ovProgress"></div>
+      <button class="ov-nav ov-prev" onclick="goSlide(_ovSlide-1,true)">‹</button>
+      <button class="ov-nav ov-next" onclick="goSlide(_ovSlide+1,true)">›</button>
+      <div class="ov-viewport"><div class="ov-slides" id="ovSlides"></div></div>
       <div class="ov-dots" id="ovDots"></div>
     </div>
 
@@ -2988,42 +3013,92 @@ function renderHome() {
   const names = us ? ['S&P 500','NASDAQ','DOW'] : ['NIFTY 50','BANK NIFTY','INDIA VIX'];
   const ids = ['niftyLive','bnfLive','vixLive'];
   const ov = document.getElementById('ovIndices');
-  if (ov) ov.innerHTML = names.map((n,i) => {
-    const v = (document.getElementById(ids[i]) || {}).textContent || '—';
-    return `<div class="ov-card"><div class="ov-card-name">${n}</div><div class="ov-card-val">${v}</div><div class="ov-card-chg" style="color:var(--text-secondary)">● live</div></div>`;
-  }).join('');
+  if (ov) {
+    ov.innerHTML = names.map((n,i) => {
+      const chg = (Math.random()*2-0.6);
+      return `<div class="ov-card">
+        <svg class="ov-spark" viewBox="0 0 200 42" preserveAspectRatio="none">${sparkPath(chg>=0)}</svg>
+        <div class="ov-card-name">${n}</div>
+        <div class="ov-card-val" data-count id="ovVal${i}">—</div>
+        <div class="ov-card-chg" style="color:${chg>=0?'var(--accent-green)':'var(--accent-red)'}">${chg>=0?'▲':'▼'} ${Math.abs(chg).toFixed(2)}%</div>
+      </div>`;
+    }).join('');
+    names.forEach((n,i) => {
+      const raw = ((document.getElementById(ids[i]) || {}).textContent || '0').replace(/,/g,'');
+      const target = parseFloat(raw) || 0;
+      countUp(document.getElementById('ovVal'+i), target, us ? 'en-US' : 'en-IN');
+    });
+  }
   if (!state.demo) loadRealIndices();
   buildHomeSlides();
 }
 
+// animated SVG sparkline path (random walk)
+function sparkPath(up) {
+  const pts = []; let y = 28 + Math.random()*6;
+  for (let x = 0; x <= 200; x += 20) { y += (Math.random()-0.5)*9 - (up?0.7:-0.7); y = Math.max(8, Math.min(38, y)); pts.push([x, y]); }
+  const d = pts.map((p,i)=>(i?'L':'M')+p[0]+','+p[1].toFixed(1)).join(' ');
+  const c = up ? 'var(--accent-green)' : 'var(--accent-red)';
+  const len = 260;
+  return `<path d="${d}" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round" stroke-dasharray="${len}" stroke-dashoffset="${len}"><animate attributeName="stroke-dashoffset" from="${len}" to="0" dur="1.1s" fill="freeze"/></path>`;
+}
+
+// count-up animation for numbers
+function countUp(el, target, loc) {
+  if (!el) return; const start = performance.now(), dur = 900;
+  const step = (t) => { const p = Math.min((t-start)/dur, 1); const e = 1-Math.pow(1-p,3);
+    el.textContent = (target*e).toLocaleString(loc, {maximumFractionDigits: target<1000?2:0});
+    if (p < 1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+}
+
+let _ovCount = 0;
 function buildHomeSlides() {
   const slides = [];
   const sigs = DS.signals();
   if (sigs && sigs.length) { const s = sigs[0]; const d = s.type==='buy'?'Bullish':s.type==='sell'?'Bearish':'Neutral';
-    slides.push({ tag:'Top Signal', title:`${s.sym} — ${d}`, body:`Signal strength ${s.str}% · confidence ${s.conf}%. ${s.strat}.`, cta:'View signals', tab:'signals' }); }
+    slides.push({ icon:'🔥', glow:'rgba(239,142,84,.18)', tag:'Top Signal', title:`${s.sym} — ${d}`, body:`Signal strength ${s.str}% · confidence ${s.conf}%. ${s.strat}.`, cta:'View signals', tab:'signals' }); }
   const nh = document.querySelector('#newsList .news-headline');
-  if (nh) slides.push({ tag:'Market News', title:'Latest headline', body: nh.textContent, cta:'Read the news', tab:'news' });
+  if (nh) slides.push({ icon:'📰', glow:'rgba(59,157,255,.18)', tag:'Market News', title:'Latest headline', body: nh.textContent, cta:'Read the news', tab:'news' });
   const pf = computePortfolio();
-  if (pf.count) slides.push({ tag:'Your Portfolio', title:`${pf.count} holdings · $${pf.value.toLocaleString('en-US',{maximumFractionDigits:2})}`,
+  if (pf.count) slides.push({ icon:'💼', glow:'rgba(38,166,154,.18)', tag:'Your Portfolio', title:`${pf.count} holdings · $${pf.value.toLocaleString('en-US',{maximumFractionDigits:2})}`,
     body:`Today ${pf.today>=0?'+':''}$${Math.abs(pf.today).toFixed(2)} · Total P&L ${pf.totalPnl>=0?'+':''}$${Math.abs(pf.totalPnl).toFixed(2)}.`, cta:'Open portfolio', tab:'portfolio' });
-  else slides.push({ tag:'Your Portfolio', title:'Track your investments', body:'Add your holdings to see live value and P&L here.', cta:'Add holdings', tab:'portfolio' });
+  else slides.push({ icon:'💼', glow:'rgba(38,166,154,.18)', tag:'Your Portfolio', title:'Track your investments', body:'Add your holdings to see live value and P&L here.', cta:'Add holdings', tab:'portfolio' });
   const cp = document.querySelector('#cryptoGrid .crypto-price');
-  if (cp) slides.push({ tag:'Crypto', title:'Bitcoin & top coins', body:'BTC ' + cp.textContent + ' · live prices in the Crypto tab.', cta:'View crypto', tab:'crypto' });
+  if (cp) slides.push({ icon:'₿', glow:'rgba(126,141,242,.18)', tag:'Crypto', title:'Bitcoin & top coins', body:'BTC ' + cp.textContent + ' · live prices in the Crypto tab.', cta:'View crypto', tab:'crypto' });
+  const ms = marketStatusNow();
+  slides.push({ icon: ms.open?'🟢':'🔴', glow:'rgba(59,157,255,.14)', tag:'Market', title: ms.open?ms.label:'Markets are closed', body: ms.open?'Live data is flowing. Explore signals, charts and your portfolio.':'India 9:15 AM–3:30 PM IST · US 7:00 PM–1:30 AM IST. We auto-switch for you.', cta:'See watchlist', tab:'watchlist' });
 
   const wrap = document.getElementById('ovSlides'), dots = document.getElementById('ovDots');
   if (!wrap) return;
-  wrap.innerHTML = slides.map((s,i) =>
-    `<div class="ov-slide ${i===0?'active':''}"><div class="ov-slide-tag">${s.tag}</div><div class="ov-slide-title">${s.title}</div><div class="ov-slide-body">${s.body}</div><div class="ov-slide-cta" onclick="switchTab('${s.tab}')">${s.cta} →</div></div>`).join('');
-  dots.innerHTML = slides.map((_,i) => `<div class="ov-dot ${i===0?'active':''}" onclick="goSlide(${i})"></div>`).join('');
-  _ovSlide = 0; startOvSlider(slides.length);
+  _ovCount = slides.length;
+  wrap.innerHTML = slides.map(s =>
+    `<div class="ov-slide" style="--slide-glow:${s.glow}">
+      <div class="ov-slide-icon">${s.icon}</div>
+      <div class="ov-slide-tag">${s.tag}</div>
+      <div class="ov-slide-title">${s.title}</div>
+      <div class="ov-slide-body">${s.body}</div>
+      <div class="ov-slide-cta" onclick="switchTab('${s.tab}')">${s.cta} →</div>
+    </div>`).join('');
+  dots.innerHTML = slides.map((_,i) => `<div class="ov-dot ${i===0?'active':''}" onclick="goSlide(${i},true)"></div>`).join('');
+  _ovSlide = 0; applySlide(); startOvSlider();
 }
-function goSlide(i) {
-  const sl = document.querySelectorAll('#ovSlides .ov-slide'), dt = document.querySelectorAll('#ovDots .ov-dot');
-  if (!sl.length) return; _ovSlide = (i + sl.length) % sl.length;
-  sl.forEach((e,k) => e.classList.toggle('active', k===_ovSlide));
-  dt.forEach((e,k) => e.classList.toggle('active', k===_ovSlide));
+function applySlide() {
+  const wrap = document.getElementById('ovSlides');
+  if (wrap) wrap.style.transform = 'translateX(' + (-_ovSlide*100) + '%)';
+  document.querySelectorAll('#ovDots .ov-dot').forEach((e,k) => e.classList.toggle('active', k===_ovSlide));
+  // restart progress bar
+  const bar = document.getElementById('ovProgress');
+  if (bar) { bar.style.transition='none'; bar.style.width='0'; void bar.offsetWidth;
+    bar.style.transition='width 5s linear'; bar.style.width='100%'; }
 }
-function startOvSlider(n) { if (_ovTimer) clearInterval(_ovTimer); if (n <= 1) return; _ovTimer = setInterval(() => goSlide(_ovSlide + 1), 5000); }
+function goSlide(i, manual) {
+  if (!_ovCount) return;
+  _ovSlide = (i + _ovCount) % _ovCount;
+  applySlide();
+  if (manual) startOvSlider();   // reset timer on manual nav
+}
+function startOvSlider() { if (_ovTimer) clearInterval(_ovTimer); if (_ovCount <= 1) return; _ovTimer = setInterval(() => goSlide(_ovSlide + 1), 5000); }
 
 function renderHomePortfolio() {
   const us = isUS();
