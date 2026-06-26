@@ -772,7 +772,7 @@
       <div class="hp-body" id="hpBody"></div>
     </div>
 
-    <div class="section-title">🔥 Live Trading Signals</div>
+    <div class="section-title">🔥 Market Signals <span style="font-size:11px;font-weight:400;color:var(--text-secondary)">· educational analytics, not advice</span></div>
     <div class="signals-grid" id="signalsGrid"></div>
   </div>
 
@@ -1774,6 +1774,7 @@ function updateTickerPrices() {
 // ─── SIGNAL CARD BUILDER ─────────────────────────────────────────────────────
 function buildSignalCard(s) {
   const dir = s.type;
+  const sig = dir === 'buy' ? 'BULLISH' : dir === 'sell' ? 'BEARISH' : 'NEUTRAL';
   const strCls = s.str >= 80 ? 'high' : s.str >= 60 ? 'medium' : 'low';
   const targets = [s.t1, s.t2, s.t3].filter(Boolean);
   return `
@@ -1784,11 +1785,11 @@ function buildSignalCard(s) {
           <div class="signal-company">${s.comp}</div>
         </div>
         ${dir === 'hold'
-          ? `<span class="signal-badge ${dir}">HOLD</span>`
-          : `<button class="signal-badge ${dir}" onclick="event.stopPropagation(); tradeSignal('${s.sym}','${dir}')" title="Place ${dir.toUpperCase()} order for ${s.sym} via your broker">${dir.toUpperCase()}</button>`}
+          ? `<span class="signal-badge ${dir}">NEUTRAL</span>`
+          : `<button class="signal-badge ${dir}" onclick="event.stopPropagation(); tradeSignal('${s.sym}','${dir}')" title="Open your broker to trade ${s.sym} — you decide & confirm">${sig} ↗</button>`}
       </div>
       <div class="signal-metrics">
-        <div class="signal-metric"><div class="signal-metric-label">Entry Price</div><div class="signal-metric-value cyan">${money(s.price)}</div></div>
+        <div class="signal-metric"><div class="signal-metric-label">Price</div><div class="signal-metric-value cyan">${money(s.price)}</div></div>
         <div class="signal-metric"><div class="signal-metric-label">Strategy</div><div class="signal-metric-value" style="font-size:11px;color:var(--text-secondary)">${s.strat}</div></div>
         <div class="signal-metric"><div class="signal-metric-label">Strength</div><div class="signal-metric-value ${s.str>=80?'green':s.str>=60?'yellow':'red'}">${s.str}%</div></div>
         <div class="signal-metric"><div class="signal-metric-label">Confidence</div><div class="signal-metric-value ${s.conf>=80?'green':s.conf>=60?'yellow':'red'}">${s.conf}%</div></div>
@@ -1797,8 +1798,8 @@ function buildSignalCard(s) {
       </div>
       <div class="strength-bar"><div class="strength-fill ${strCls}" style="width:${s.str}%"></div></div>
       <div class="signal-targets">
-        ${targets.map((t,i)=>`<span class="target-tag">T${i+1}: ${money(t)}</span>`).join('')}
-        <span class="stop-tag">SL: ${money(s.sl)}</span>
+        ${targets.map((t,i)=>`<span class="target-tag">R${i+1}: ${money(t)}</span>`).join('')}
+        <span class="stop-tag">Support: ${money(s.sl)}</span>
       </div>
       <div class="signal-footer">
         <span class="signal-time">🕐 ${s.time}</span>
