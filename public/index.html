@@ -478,14 +478,17 @@
   .ov-progress { position:absolute; top:0; left:0; height:3px; width:0; z-index:3; background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple)); }
   .ov-viewport { overflow: hidden; }
   .ov-slides { display: flex; transition: transform .6s cubic-bezier(.4,0,.2,1); }
-  .ov-slide { min-width: 100%; padding: 30px 30px 34px; box-sizing: border-box; position: relative; }
-  .ov-slide::after { content:''; position:absolute; inset:0; pointer-events:none; opacity:.5;
-    background: radial-gradient(circle at 85% 30%, var(--slide-glow, rgba(59,157,255,.16)), transparent 55%); }
-  .ov-slide > * { position: relative; z-index:1; }
-  .ov-slide-icon { font-size: 30px; margin-bottom: 6px; }
+  .ov-slide { min-width: 100%; box-sizing: border-box; padding: 26px 30px; position: relative;
+    display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 168px; }
+  .ov-slide::after { content:''; position:absolute; inset:0; pointer-events:none; opacity:.6;
+    background: radial-gradient(circle at 88% 50%, var(--slide-glow, rgba(59,157,255,.16)), transparent 58%); }
+  .ov-slide-main { position: relative; z-index:1; flex: 1; min-width: 0; }
+  .ov-slide-art { position: relative; z-index:1; font-size: 84px; line-height: 1; opacity: .16; flex-shrink: 0; }
+  .ov-slide-icon { font-size: 24px; margin-bottom: 4px; }
   .ov-slide-tag { font-size: 11px; font-weight: 800; letter-spacing: 1px; color: var(--accent-cyan); text-transform: uppercase; }
-  .ov-slide-title { font-size: 22px; font-weight: 900; margin: 8px 0; letter-spacing:-.3px; }
-  .ov-slide-body { font-size: 13.5px; color: var(--text-secondary); line-height: 1.6; max-width: 640px; }
+  .ov-slide-title { font-size: 21px; font-weight: 900; margin: 6px 0; letter-spacing:-.3px; }
+  .ov-slide-body { font-size: 13px; color: var(--text-secondary); line-height: 1.55; }
+  @media (max-width: 640px) { .ov-slide-art { display: none; } .ov-slide { min-height: 150px; } }
   .ov-slide-cta { display: inline-block; margin-top: 14px; font-size: 12.5px; font-weight: 800; color: #000; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple)); padding: 9px 18px; border-radius: 9px; cursor: pointer; }
   .ov-slide-cta:hover { filter: brightness(1.08); }
   .ov-nav { position:absolute; top:50%; transform:translateY(-50%); z-index:3; width:34px; height:34px; border-radius:50%; border:1px solid var(--border); background:var(--bg-secondary); color:var(--text-primary); cursor:pointer; font-size:15px; opacity:.8; }
@@ -3007,7 +3010,8 @@ function renderHome() {
   if (hello) hello.textContent = 'Welcome' + (u && u.name ? ', ' + u.name.split(' ')[0] : '') + ' 👋';
   const ms = marketStatusNow();
   const st = document.getElementById('homeMktStatus');
-  if (st) { st.textContent = ms.open ? ('🟢 ' + ms.label) : '🔴 Markets Closed';
+  if (st) { const lbl = ms.open ? (isUS() ? 'US Market Open' : 'NSE Market Open') : 'Markets Closed';
+            st.textContent = (ms.open ? '🟢 ' : '🌙 ') + lbl;
             st.style.color = ms.open ? 'var(--accent-green)' : 'var(--accent-red)'; }
   const us = isUS();
   const names = us ? ['S&P 500','NASDAQ','DOW'] : ['NIFTY 50','BANK NIFTY','INDIA VIX'];
@@ -3067,18 +3071,22 @@ function buildHomeSlides() {
   const cp = document.querySelector('#cryptoGrid .crypto-price');
   if (cp) slides.push({ icon:'₿', glow:'rgba(126,141,242,.18)', tag:'Crypto', title:'Bitcoin & top coins', body:'BTC ' + cp.textContent + ' · live prices in the Crypto tab.', cta:'View crypto', tab:'crypto' });
   const ms = marketStatusNow();
-  slides.push({ icon: ms.open?'🟢':'🔴', glow:'rgba(59,157,255,.14)', tag:'Market', title: ms.open?ms.label:'Markets are closed', body: ms.open?'Live data is flowing. Explore signals, charts and your portfolio.':'India 9:15 AM–3:30 PM IST · US 7:00 PM–1:30 AM IST. We auto-switch for you.', cta:'See watchlist', tab:'watchlist' });
+  const mktTitle = ms.open ? (isUS() ? 'US Market is Open' : 'Indian Market is Open') : 'Markets are Closed';
+  slides.push({ icon: ms.open?'🟢':'🌙', glow:'rgba(59,157,255,.14)', tag:'Market Status', title: mktTitle, body: ms.open?'Live data is flowing. Explore signals, charts and your portfolio.':'India 9:15 AM–3:30 PM IST · US 7:00 PM–1:30 AM IST. We switch automatically.', cta:'See watchlist', tab:'watchlist' });
 
   const wrap = document.getElementById('ovSlides'), dots = document.getElementById('ovDots');
   if (!wrap) return;
   _ovCount = slides.length;
   wrap.innerHTML = slides.map(s =>
     `<div class="ov-slide" style="--slide-glow:${s.glow}">
-      <div class="ov-slide-icon">${s.icon}</div>
-      <div class="ov-slide-tag">${s.tag}</div>
-      <div class="ov-slide-title">${s.title}</div>
-      <div class="ov-slide-body">${s.body}</div>
-      <div class="ov-slide-cta" onclick="switchTab('${s.tab}')">${s.cta} →</div>
+      <div class="ov-slide-main">
+        <div class="ov-slide-icon">${s.icon}</div>
+        <div class="ov-slide-tag">${s.tag}</div>
+        <div class="ov-slide-title">${s.title}</div>
+        <div class="ov-slide-body">${s.body}</div>
+        <div class="ov-slide-cta" onclick="switchTab('${s.tab}')">${s.cta} →</div>
+      </div>
+      <div class="ov-slide-art">${s.icon}</div>
     </div>`).join('');
   dots.innerHTML = slides.map((_,i) => `<div class="ov-dot ${i===0?'active':''}" onclick="goSlide(${i},true)"></div>`).join('');
   _ovSlide = 0; applySlide(); startOvSlider();
