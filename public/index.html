@@ -3077,12 +3077,17 @@ function mountMarketWidgets() {
   if (_tvMounted === key) return;   // avoid re-mount churn
   _tvMounted = key;
 
+  // Use freely-embeddable ETF symbols (NSE/BSE indices are restricted in the free widget → blank).
+  const inSyms = [
+    ['India (INDA)','AMEX:INDA|1D'], ['S&P 500','AMEX:SPY|1D'], ['Nasdaq 100','NASDAQ:QQQ|1D'],
+    ['Dow','AMEX:DIA|1D'], ['Bitcoin','BINANCE:BTCUSDT|1D'], ['Gold','TVC:GOLD|1D']
+  ];
+  const usSyms = [
+    ['S&P 500','AMEX:SPY|1D'], ['Nasdaq 100','NASDAQ:QQQ|1D'], ['Dow','AMEX:DIA|1D'],
+    ['India (INDA)','AMEX:INDA|1D'], ['Bitcoin','BINANCE:BTCUSDT|1D'], ['Gold','TVC:GOLD|1D']
+  ];
   mountTVWidget('tvSymbolOverview', 'https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js', {
-    symbols: [
-      ['Nifty 50','NSE:NIFTY|1D'], ['Sensex','BSE:SENSEX|1D'], ['Bank Nifty','NSE:BANKNIFTY|1D'],
-      ['S&P 500','SP:SPX|1D'], ['Nasdaq','NASDAQ:IXIC|1D'], ['Dow Jones','DJ:DJI|1D'],
-      ['Bitcoin','BINANCE:BTCUSDT|1D'], ['Gold','TVC:GOLD|1D']
-    ],
+    symbols: isUS() ? usSyms : inSyms,
     chartOnly: false, width: '100%', height: 400, locale: 'en',
     colorTheme: theme, autosize: false, showVolume: false, showMA: false,
     hideDateRanges: false, scalePosition: 'right', scaleMode: 'Normal',
@@ -3403,6 +3408,7 @@ function applyMarketMode() {
   if (market === 'us') { renderVested(); if (state.backendConnected) refreshVestedPrices(); }
   renderHomePortfolio();
   if (changed) loadRealNews(true);   // refresh news for the active market (India/US)
+  if (state.activeTab === 'home' && typeof mountMarketWidgets === 'function') mountMarketWidgets();
 
   // Pull live data for the active market
   if (state.backendConnected) {
