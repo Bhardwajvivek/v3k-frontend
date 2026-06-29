@@ -498,6 +498,20 @@
   .ov-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); cursor: pointer; transition: all 0.25s; }
   .ov-dot.active { background: var(--accent-cyan); width: 24px; border-radius: 4px; }
 
+  /* GALAXY / SCREENSAVER */
+  .galaxy-overlay { position: fixed; inset: 0; z-index: 6000; display: none; background: #03040a; overflow: hidden; }
+  .galaxy-overlay.show { display: block; }
+  #galaxyCanvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .galaxy-hud { position: absolute; top: 26px; left: 0; right: 0; text-align: center; z-index: 2; pointer-events: none; }
+  .galaxy-title { font-size: 22px; font-weight: 900; letter-spacing: 3px; color: #fff; text-shadow: 0 0 18px rgba(59,157,255,.7); }
+  .galaxy-sub { font-size: 12px; color: #8fa6c8; margin-top: 6px; letter-spacing: 1px; }
+  .galaxy-close { position: absolute; top: 18px; right: 18px; z-index: 3; width: 40px; height: 40px; border-radius: 50%; border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.06); color: #fff; font-size: 16px; cursor: pointer; }
+  .galaxy-close:hover { background: rgba(255,255,255,.15); }
+  .galaxy-hint { position: absolute; bottom: 22px; left: 0; right: 0; text-align: center; color: #5b6b85; font-size: 11px; letter-spacing: 1px; z-index: 2; animation: galaxyPulse 2.5s ease-in-out infinite; }
+  @keyframes galaxyPulse { 0%,100%{opacity:.4;} 50%{opacity:.9;} }
+  .galaxy-launch { background: linear-gradient(135deg, #3b9dff, #7e8df2); color:#001226; border:none; border-radius:12px; padding:14px 18px; font-weight:800; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:8px; box-shadow: var(--card-shadow); }
+  .galaxy-launch:hover { filter: brightness(1.08); }
+
   /* HOME HIGHLIGHT CARDS */
   .hl-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; margin-bottom: 26px; }
   .hl-card { position: relative; overflow: hidden; background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 18px 20px; cursor: pointer; transition: transform .2s, border-color .2s; box-shadow: var(--card-shadow); }
@@ -691,6 +705,17 @@
   </div>
 </div>
 
+<!-- GALAXY / SCREENSAVER OVERLAY -->
+<div id="galaxyOverlay" class="galaxy-overlay">
+  <canvas id="galaxyCanvas"></canvas>
+  <div class="galaxy-hud">
+    <div class="galaxy-title">V3K Market Galaxy</div>
+    <div class="galaxy-sub" id="galaxySub">Live names orbiting the markets</div>
+  </div>
+  <button class="galaxy-close" onclick="stopGalaxy()" title="Exit">✕</button>
+  <div class="galaxy-hint">Tap / move to exit</div>
+</div>
+
 <!-- SIDEBAR OVERLAY -->
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
 
@@ -874,6 +899,10 @@
 
     <!-- Live highlight cards -->
     <div class="hl-grid" id="ovHighlights"></div>
+
+    <div style="display:flex;justify-content:center;margin:6px 0 22px;">
+      <button class="galaxy-launch" onclick="startGalaxy()">🌌 Enter Market Galaxy</button>
+    </div>
 
     <!-- Markets, everywhere — TradingView Symbol Overview (chart + index chips) -->
     <div class="ov-section-title">📈 Markets, everywhere</div>
@@ -1696,6 +1725,7 @@ function grantAccess() {
   document.body.style.overflow = '';
   if (_authStop) { _authStop(); _authStop = null; }   // stop canvas animation (save CPU)
   renderAccountPill();
+  if (typeof resetIdle === 'function') resetIdle();    // arm galaxy screensaver
 }
 
 function logoutUser() {
@@ -1895,13 +1925,13 @@ function buildTicker() {
   if (_tickerMounted === theme) return;   // avoid re-mount churn
   _tickerMounted = theme;
   const symbols = [
-    { proName: 'TVC:SPX',           title: 'S&P 500' },
-    { proName: 'TVC:NDX',           title: 'Nasdaq 100' },
-    { proName: 'TVC:DJI',           title: 'Dow Jones' },
+    { proName: 'FOREXCOM:SPXUSD',   title: 'S&P 500' },
+    { proName: 'FOREXCOM:NSXUSD',   title: 'Nasdaq 100' },
+    { proName: 'FOREXCOM:DJI',      title: 'Dow Jones' },
     { proName: 'AMEX:INDA',         title: 'India ETF' },
     { proName: 'BINANCE:BTCUSDT',   title: 'Bitcoin' },
     { proName: 'BINANCE:ETHUSDT',   title: 'Ethereum' },
-    { proName: 'TVC:GOLD',          title: 'Gold' },
+    { proName: 'OANDA:XAUUSD',      title: 'Gold' },
     { proName: 'TVC:USOIL',         title: 'Crude Oil' },
     { proName: 'FX_IDC:USDINR',     title: 'USD/INR' },
     { proName: 'FX:EURUSD',         title: 'EUR/USD' },
@@ -2960,6 +2990,114 @@ document.addEventListener('click', (e) => {
 });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeChart(); });
 
+// ─── MARKET GALAXY (rotating universe + screensaver) ─────────────────────────
+let _galaxyRAF = null, _galaxyStop = false;
+function startGalaxy() {
+  const ov = document.getElementById('galaxyOverlay');
+  const c  = document.getElementById('galaxyCanvas');
+  if (!ov || !c) return;
+  ov.classList.add('show');
+  const ctx = c.getContext('2d');
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  let W, H, cx, cy;
+  const resize = () => { W = c.clientWidth; H = c.clientHeight; c.width = W*dpr; c.height = H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0); cx = W/2; cy = H/2; };
+  resize();
+  window.addEventListener('resize', resize);
+
+  // Background stars (rigid-ish rotation, inner faster = spiral feel)
+  const maxR = Math.hypot(W, H) / 2;
+  const stars = [];
+  for (let i = 0; i < 460; i++) {
+    const r = Math.pow(Math.random(), 0.7) * maxR;
+    stars.push({ r, a: Math.random()*Math.PI*2, sp: (0.00028 + (1 - r/maxR)*0.0011), sz: Math.random()*1.6+0.3, tw: Math.random()*Math.PI*2 });
+  }
+  // Stock-name "planets" orbiting clockwise
+  const NAMES = (isUS()
+    ? [['AAPL','#3b9dff'],['NVDA','#26a69a'],['MSFT','#7e8df2'],['TSLA','#ef5350'],['AMZN','#e0a93b'],['META','#3b9dff'],['GOOGL','#26a69a'],['S&P 500','#7e8df2'],['NASDAQ','#3b9dff'],['BTC','#e0a93b'],['ETH','#7e8df2'],['GOLD','#e0a93b']]
+    : [['NIFTY','#3b9dff'],['RELIANCE','#26a69a'],['TCS','#7e8df2'],['HDFC','#3b9dff'],['INFY','#26a69a'],['SBIN','#e0a93b'],['BANKNIFTY','#ef8e54'],['TATA','#3b9dff'],['ADANI','#26a69a'],['BTC','#e0a93b'],['ETH','#7e8df2'],['GOLD','#e0a93b']]);
+  const planets = NAMES.map((n, i) => ({
+    sym: n[0], col: n[1],
+    r: (0.22 + (i % 6) * 0.12) * Math.min(W, H) * 0.5 + 40,
+    a: (i / NAMES.length) * Math.PI*2,
+    sp: 0.0016 + Math.random()*0.0012,
+    sz: 4 + Math.random()*3
+  }));
+
+  _galaxyStop = false;
+  const draw = () => {
+    if (_galaxyStop) return;
+    // deep-space backdrop + nebula
+    ctx.fillStyle = '#03040a'; ctx.fillRect(0, 0, W, H);
+    const neb = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR);
+    neb.addColorStop(0, 'rgba(59,80,180,0.18)');
+    neb.addColorStop(0.4, 'rgba(126,80,200,0.10)');
+    neb.addColorStop(1, 'rgba(3,4,10,0)');
+    ctx.fillStyle = neb; ctx.fillRect(0, 0, W, H);
+    // glowing core
+    const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, 120);
+    core.addColorStop(0, 'rgba(255,255,255,0.9)');
+    core.addColorStop(0.2, 'rgba(160,200,255,0.5)');
+    core.addColorStop(1, 'rgba(160,200,255,0)');
+    ctx.fillStyle = core; ctx.beginPath(); ctx.arc(cx, cy, 120, 0, Math.PI*2); ctx.fill();
+
+    // stars (clockwise)
+    for (const s of stars) {
+      s.a += s.sp; s.tw += 0.05;
+      const x = cx + s.r*Math.cos(s.a), y = cy + s.r*Math.sin(s.a);
+      const al = 0.4 + Math.abs(Math.sin(s.tw))*0.6;
+      ctx.fillStyle = 'rgba(255,255,255,' + al.toFixed(2) + ')';
+      ctx.beginPath(); ctx.arc(x, y, s.sz, 0, Math.PI*2); ctx.fill();
+    }
+    // planets with labels (clockwise)
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = '600 13px -apple-system, system-ui, sans-serif';
+    for (const p of planets) {
+      p.a += p.sp;
+      const x = cx + p.r*Math.cos(p.a), y = cy + p.r*Math.sin(p.a);
+      const g = ctx.createRadialGradient(x, y, 0, x, y, p.sz*3.5);
+      g.addColorStop(0, p.col); g.addColorStop(1, 'transparent');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, p.sz*3.5, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = p.col; ctx.beginPath(); ctx.arc(x, y, p.sz, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.92)';
+      ctx.fillText(p.sym, x, y - p.sz - 10);
+    }
+    _galaxyRAF = requestAnimationFrame(draw);
+  };
+  _galaxyRAF = requestAnimationFrame(draw);
+
+  const sub = document.getElementById('galaxySub');
+  if (sub) sub.textContent = (isUS() ? 'US market' : 'Indian market') + ' names orbiting · live universe';
+
+  // any interaction exits the screensaver
+  setTimeout(() => {
+    ov.addEventListener('click', stopGalaxy, { once: true });
+    ov.addEventListener('touchstart', stopGalaxy, { once: true });
+  }, 300);
+  c._resize = resize;
+}
+function stopGalaxy() {
+  _galaxyStop = true;
+  if (_galaxyRAF) cancelAnimationFrame(_galaxyRAF);
+  const c = document.getElementById('galaxyCanvas');
+  if (c && c._resize) window.removeEventListener('resize', c._resize);
+  document.getElementById('galaxyOverlay').classList.remove('show');
+  resetIdle();
+}
+
+// Screensaver: launch galaxy after 90s of inactivity (only when logged in)
+let _idleTimer = null;
+function resetIdle() {
+  clearTimeout(_idleTimer);
+  _idleTimer = setTimeout(() => {
+    const gate = document.getElementById('authGate');
+    const gateOpen = gate && getComputedStyle(gate).display !== 'none';
+    const galaxyOpen = document.getElementById('galaxyOverlay').classList.contains('show');
+    if (!gateOpen && !galaxyOpen) startGalaxy();
+  }, 90000);
+}
+['mousemove','keydown','touchstart','click','scroll'].forEach(ev =>
+  document.addEventListener(ev, () => { if (!document.getElementById('galaxyOverlay').classList.contains('show')) resetIdle(); }, { passive: true }));
+
 // ─── STOCK SEARCH ────────────────────────────────────────────────────────────
 function doStockSearch() {
   const inp = document.getElementById('stockSearch');
@@ -3089,13 +3227,13 @@ function mountMarketWidgets() {
     ['India (INDA)','AMEX:INDA|1D']
   ];
   const US = [
-    ['S&P 500','TVC:SPX|1D'], ['Nasdaq 100','TVC:NDX|1D'], ['Dow Jones','TVC:DJI|1D'], ['Russell 2000','TVC:RUT|1D']
+    ['S&P 500','FOREXCOM:SPXUSD|1D'], ['Nasdaq 100','FOREXCOM:NSXUSD|1D'], ['Dow Jones','FOREXCOM:DJI|1D']
   ];
   const GLOBAL = [
-    ['FTSE 100','TVC:UKX|1D'], ['DAX','TVC:DAX|1D'], ['Nikkei 225','TVC:NI225|1D'], ['Hang Seng','TVC:HSI|1D'], ['CAC 40','TVC:CAC40|1D']
+    ['FTSE 100','FOREXCOM:UK100|1D'], ['DAX','FOREXCOM:GER40|1D'], ['Nikkei 225','FOREXCOM:JPN225|1D'], ['Hang Seng','FOREXCOM:HK50|1D']
   ];
   const COMMOD = [
-    ['Crude Oil','TVC:USOIL|1D'], ['Gold','TVC:GOLD|1D'], ['Silver','TVC:SILVER|1D'], ['Bitcoin','BINANCE:BTCUSDT|1D'], ['Ethereum','BINANCE:ETHUSDT|1D']
+    ['Crude Oil','TVC:USOIL|1D'], ['Gold','OANDA:XAUUSD|1D'], ['Silver','OANDA:XAGUSD|1D'], ['Bitcoin','BINANCE:BTCUSDT|1D'], ['Ethereum','BINANCE:ETHUSDT|1D']
   ];
   const inSyms = [...INDIA, ...US, ...GLOBAL, ...COMMOD];
   const usSyms = [...US, ...INDIA, ...GLOBAL, ...COMMOD];
