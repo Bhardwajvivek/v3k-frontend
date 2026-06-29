@@ -286,6 +286,16 @@
 
   /* WATCHLIST */
   .wl-tabs-row { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
+  .wl-sort-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .wl-sort-label { font-size: 12px; color: var(--text-secondary); }
+  .wl-sort-select { background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 12px; cursor: pointer; outline: none; }
+  .wl-sort-dir { background: var(--bg-card); color: var(--text-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 12px; cursor: pointer; }
+  .wl-sort-dir:hover { color: var(--text-primary); }
+  .wl-vol { font-size: 12px; color: var(--text-secondary); }
+  .wl-flag-btn { width: 16px; height: 16px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer; padding: 0; display: inline-block; vertical-align: middle; }
+  .wl-flag-pop { position: absolute; z-index: 50; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 10px; padding: 8px; display: flex; gap: 6px; flex-wrap: wrap; width: 132px; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+  .wl-flag-opt { width: 18px; height: 18px; border-radius: 5px; cursor: pointer; border: 1px solid rgba(255,255,255,.15); }
+  .wl-flag-opt:hover { transform: scale(1.15); }
   .wl-tab  { padding: 7px 18px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-secondary); cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.2s; }
   .wl-tab.active { background: var(--accent-cyan); color: #000; border-color: var(--accent-cyan); }
   .wl-rename-btn { padding: 5px 10px; border-radius: 6px; border: 1px solid var(--border); background: none; color: var(--text-secondary); cursor: pointer; font-size: 11px; }
@@ -1113,6 +1123,22 @@
         <button class="wl-mkt-btn us"           id="wlMkt_us"    onclick="setWlMarket('us')">🇺🇸 US</button>
       </div>
       <button class="btn" style="font-size:12px;" onclick="fetchWatchlistPrices()">🔄 Prices</button>
+    </div>
+
+    <!-- Sort row -->
+    <div class="wl-sort-row">
+      <span class="wl-sort-label">Sort by:</span>
+      <select id="wlSort" class="wl-sort-select" onchange="setWlSort(this.value)">
+        <option value="custom">Default (added)</option>
+        <option value="sym">Symbol (A–Z)</option>
+        <option value="price">Last Price</option>
+        <option value="change">Change</option>
+        <option value="changepct">Change %</option>
+        <option value="flag">Flag</option>
+        <option value="mcap">Market Cap</option>
+        <option value="volume">Volume</option>
+      </select>
+      <button id="wlSortDir" class="wl-sort-dir" onclick="toggleWlSortDir()" title="Ascending / Descending">▼ Desc</button>
     </div>
 
     <!-- Stock list table -->
@@ -3708,30 +3734,112 @@ function renderWlStocks() {
     return;
   }
 
+  const rows = sortedWlStocks(wl.stocks);
   el.innerHTML = `<table class="wl-table">
     <thead><tr>
-      <th>Symbol</th><th>Price</th><th>24h Change</th><th>Market</th><th></th>
+      <th>⚑</th><th>Symbol</th><th>Price</th><th>Change</th><th>Chg %</th><th>Mkt Cap</th><th>Volume</th><th>Market</th><th></th>
     </tr></thead>
     <tbody>
-      ${wl.stocks.map(s => {
-        const p    = wlPrices[s.sym];
-        const curr = p ? (s.market === 'us'
-          ? '$' + parseFloat(p.price).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})
-          : '₹' + parseFloat(p.price).toLocaleString('en-IN')) : '<span style="color:var(--text-secondary)">—</span>';
-        const chg  = p ? parseFloat(p.change) : null;
-        const chgHtml = chg !== null
-          ? `<span class="wl-chg ${chg>=0?'up':'down'}">${chg>=0?'▲':'▼'} ${Math.abs(chg).toFixed(2)}%</span>`
-          : '<span style="color:var(--text-secondary)">—</span>';
+      ${rows.map(s => {
+        const p    = wlPrices[s.sym] || {};
+        const prc  = p.price != null ? parseFloat(p.price) : null;
+        const curr = prc != null ? (s.market === 'us'
+          ? '$' + prc.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})
+          : '₹' + prc.toLocaleString('en-IN')) : '<span style="color:var(--text-secondary)">—</span>';
+        const chg  = p.change != null ? parseFloat(p.change) : null;
+        const prev = (prc != null && chg != null) ? prc / (1 + chg/100) : null;
+        const absChg = (prc != null && prev != null) ? (prc - prev) : null;
+        const cur = s.market === 'us' ? '$' : '₹';
+        const chgAbsHtml = absChg != null ? `<span class="wl-chg ${absChg>=0?'up':'down'}">${absChg>=0?'+':''}${cur}${Math.abs(absChg).toFixed(2)}</span>` : '<span style="color:var(--text-secondary)">—</span>';
+        const chgPctHtml = chg != null ? `<span class="wl-chg ${chg>=0?'up':'down'}">${chg>=0?'▲':'▼'} ${Math.abs(chg).toFixed(2)}%</span>` : '<span style="color:var(--text-secondary)">—</span>';
+        const flagCol = s.flag || 'transparent';
         return `<tr>
+          <td><button class="wl-flag-btn" style="background:${flagCol}" onclick="openFlagPicker(event,'${s.sym}')" title="Flag"></button></td>
           <td class="wl-sym" data-chart-sym="${s.sym}" data-chart-market="${s.market}" title="Click to view ${s.sym} chart">${s.sym}</td>
           <td class="wl-price">${curr}</td>
-          <td>${chgHtml}</td>
+          <td>${chgAbsHtml}</td>
+          <td>${chgPctHtml}</td>
+          <td class="wl-vol">${p.mcap ? fmtBig(p.mcap, s.market) : '—'}</td>
+          <td class="wl-vol">${p.volume ? fmtBig(p.volume, '') : '—'}</td>
           <td><span class="wl-mkt-tag ${s.market}">${s.market==='us'?'🇺🇸 US':'🇮🇳 NSE'}</span></td>
           <td><button class="wl-remove" onclick="removeFromWl('${s.sym}')">✕</button></td>
         </tr>`;
       }).join('')}
     </tbody>
   </table>`;
+}
+
+// Human-readable big numbers (Cr/L for ₹, B/M for $/plain)
+function fmtBig(n, market) {
+  n = Number(n) || 0;
+  if (market === 'us' || market === '$') {
+    if (n >= 1e12) return '$' + (n/1e12).toFixed(2) + 'T';
+    if (n >= 1e9)  return '$' + (n/1e9).toFixed(2) + 'B';
+    if (n >= 1e6)  return '$' + (n/1e6).toFixed(2) + 'M';
+    return '$' + n.toLocaleString('en-US');
+  }
+  if (market === '₹') {
+    if (n >= 1e7) return '₹' + (n/1e7).toFixed(2) + 'Cr';
+    if (n >= 1e5) return '₹' + (n/1e5).toFixed(2) + 'L';
+    return '₹' + n.toLocaleString('en-IN');
+  }
+  // plain (volume)
+  if (n >= 1e9) return (n/1e9).toFixed(2) + 'B';
+  if (n >= 1e6) return (n/1e6).toFixed(2) + 'M';
+  if (n >= 1e3) return (n/1e3).toFixed(1) + 'K';
+  return String(n);
+}
+
+// ── Sorting ──
+let wlSort = 'custom', wlSortDir = -1;  // -1 = desc, 1 = asc
+const FLAG_ORDER = ['#ef5350','#ef8e54','#e0a93b','#26a69a','#3b9dff','#7e8df2','#ec4899','#9ca3af'];
+function setWlSort(v) { wlSort = v; renderWlStocks(); }
+function toggleWlSortDir() {
+  wlSortDir = -wlSortDir;
+  const b = document.getElementById('wlSortDir');
+  if (b) b.textContent = wlSortDir === 1 ? '▲ Asc' : '▼ Desc';
+  renderWlStocks();
+}
+function sortedWlStocks(stocks) {
+  if (wlSort === 'custom') return stocks;
+  const val = (s) => {
+    const p = wlPrices[s.sym] || {};
+    switch (wlSort) {
+      case 'sym':       return s.sym;
+      case 'price':     return p.price != null ? +p.price : -Infinity;
+      case 'change':    { const prc=+p.price, c=+p.change; return (p.price!=null&&p.change!=null) ? prc - prc/(1+c/100) : -Infinity; }
+      case 'changepct': return p.change != null ? +p.change : -Infinity;
+      case 'flag':      return s.flag ? FLAG_ORDER.indexOf(s.flag) : 99;
+      case 'mcap':      return p.mcap ? +p.mcap : -Infinity;
+      case 'volume':    return p.volume ? +p.volume : -Infinity;
+      default:          return 0;
+    }
+  };
+  return [...stocks].sort((a,b) => {
+    const va = val(a), vb = val(b);
+    if (typeof va === 'string') return wlSortDir * va.localeCompare(vb);
+    return wlSortDir * (va - vb);
+  });
+}
+
+// ── Flagging ──
+function openFlagPicker(e, sym) {
+  e.stopPropagation();
+  document.querySelectorAll('.wl-flag-pop').forEach(p => p.remove());
+  const pop = document.createElement('div');
+  pop.className = 'wl-flag-pop';
+  pop.innerHTML = FLAG_ORDER.map(c => `<div class="wl-flag-opt" style="background:${c}" onclick="setFlag('${sym}','${c}')"></div>`).join('') +
+    `<div class="wl-flag-opt" style="background:transparent;border:1px dashed var(--text-secondary);font-size:11px;text-align:center;line-height:18px;color:var(--text-secondary)" onclick="setFlag('${sym}','')">✕</div>`;
+  document.body.appendChild(pop);
+  const r = e.target.getBoundingClientRect();
+  pop.style.left = Math.min(r.left, window.innerWidth - 150) + 'px';
+  pop.style.top  = (r.bottom + 6) + 'px';
+  setTimeout(() => document.addEventListener('click', function close() { pop.remove(); document.removeEventListener('click', close); }, { once: true }), 50);
+}
+function setFlag(sym, color) {
+  const s = watchlists[activeWl].stocks.find(x => x.sym === sym);
+  if (s) { s.flag = color || null; saveWatchlists(); renderWlStocks(); }
+  document.querySelectorAll('.wl-flag-pop').forEach(p => p.remove());
 }
 
 async function addStockToWatchlist() {
@@ -3974,7 +4082,8 @@ async function fetchYahooQuote(ySym) {
       const m = j && j.chart && j.chart.result && j.chart.result[0] && j.chart.result[0].meta;
       if (m && m.regularMarketPrice != null) {
         const price = m.regularMarketPrice, prev = m.chartPreviousClose || m.previousClose || price;
-        return { price, change: prev ? ((price - prev) / prev * 100) : 0 };
+        return { price, change: prev ? ((price - prev) / prev * 100) : 0,
+                 volume: m.regularMarketVolume || 0, mcap: m.marketCap || 0 };
       }
     } catch (e) { /* try next relay */ }
   }
