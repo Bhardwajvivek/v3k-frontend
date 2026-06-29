@@ -72,7 +72,7 @@
   .sidebar-overlay.show { display: block; }
 
   /* TICKER */
-  .ticker-bar { background: var(--bg-ticker); border-bottom: 1px solid var(--border); height: 36px; overflow: hidden; position: relative; }
+  .ticker-bar { background: var(--bg-ticker); border-bottom: 1px solid var(--border); min-height: 46px; overflow: hidden; position: relative; }
   .ticker-track { display: flex; gap: 0; white-space: nowrap; animation: ticker-scroll 45s linear infinite; position: absolute; top: 0; }
   .ticker-track:hover { animation-play-state: paused; }
   .ticker-item { display: inline-flex; align-items: center; gap: 6px; padding: 0 24px; height: 36px; font-size: 12px; border-right: 1px solid #1e2635; }
@@ -725,10 +725,8 @@
   </div>
 </nav>
 
-<!-- TICKER BAR -->
-<div class="ticker-bar">
-  <div class="ticker-track" id="tickerTrack"></div>
-</div>
+<!-- TICKER BAR (live TradingView ticker tape) -->
+<div class="ticker-bar" id="tickerBar"></div>
 
 <!-- HEADER -->
 <header class="header">
@@ -1888,30 +1886,35 @@ function loadAllLive() {
 }
 
 // ─── TICKER ──────────────────────────────────────────────────────────────────
-function buildTicker(stocks) {
-  const src   = stocks || TICKER_STOCKS;
-  const isUs  = (src === US_TICKER_STOCKS);
-  const track = document.getElementById('tickerTrack');
-  const items = [...src, ...src];
-  track.innerHTML = items.map(s => {
-    const sym   = s.sym || s.s;
-    const up    = s.c >= 0;
-    const price = isUs ? '$' + s.p.toLocaleString('en-US',{maximumFractionDigits:2})
-                       : '₹' + s.p.toLocaleString('en-IN');
-    return `<div class="ticker-item" data-chart-sym="${sym}" title="Click to view ${sym} chart"><span class="ticker-symbol">${sym}</span><span class="ticker-price" data-base="${s.p}" data-sym="${sym}">${price}</span><span class="ticker-change ${up?'up':'down'}">${up?'▲':'▼'}${Math.abs(s.c)}%</span></div>`;
-  }).join('');
+// Live ticker tape via TradingView (real prices — replaces the old simulated ticker)
+let _tickerMounted = '';
+function buildTicker() {
+  const host = document.getElementById('tickerBar');
+  if (!host) return;
+  const theme = document.body.classList.contains('light') ? 'light' : 'dark';
+  if (_tickerMounted === theme) return;   // avoid re-mount churn
+  _tickerMounted = theme;
+  const symbols = [
+    { proName: 'TVC:SPX',           title: 'S&P 500' },
+    { proName: 'TVC:NDX',           title: 'Nasdaq 100' },
+    { proName: 'TVC:DJI',           title: 'Dow Jones' },
+    { proName: 'AMEX:INDA',         title: 'India ETF' },
+    { proName: 'BINANCE:BTCUSDT',   title: 'Bitcoin' },
+    { proName: 'BINANCE:ETHUSDT',   title: 'Ethereum' },
+    { proName: 'TVC:GOLD',          title: 'Gold' },
+    { proName: 'TVC:USOIL',         title: 'Crude Oil' },
+    { proName: 'FX_IDC:USDINR',     title: 'USD/INR' },
+    { proName: 'FX:EURUSD',         title: 'EUR/USD' },
+  ];
+  if (typeof mountTVWidget === 'function') {
+    mountTVWidget('tickerBar', 'https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js', {
+      symbols, showSymbolLogo: true, isTransparent: true, displayMode: 'compact',
+      colorTheme: theme, locale: 'en'
+    });
+  }
 }
 
-function updateTickerPrices() {
-  const us = isUS();
-  document.querySelectorAll('.ticker-price').forEach(el => {
-    const base = parseFloat(el.dataset.base);
-    const delta = (Math.random() - 0.48) * base * 0.003;
-    const newP = (base + delta).toFixed(base > 1000 ? 0 : 2);
-    el.dataset.base = newP;
-    el.textContent = (us ? '$' : '₹') + parseFloat(newP).toLocaleString(us ? 'en-US' : 'en-IN');
-  });
-}
+function updateTickerPrices() { /* ticker is now a live TradingView widget — no manual update needed */ }
 
 // ─── SIGNAL CARD BUILDER ─────────────────────────────────────────────────────
 function buildSignalCard(s) {
@@ -2159,6 +2162,7 @@ function toggleTheme() {
   const light = localStorage.getItem('v3k_theme') !== 'light';
   localStorage.setItem('v3k_theme', light ? 'light' : 'dark');
   applyTheme();
+  _tickerMounted = ''; buildTicker();   // re-theme the live ticker
   if (state.activeTab === 'home' && typeof mountMarketWidgets === 'function') mountMarketWidgets();
   showToast(light ? '☀️ Light theme' : '🌙 Dark theme', 'info');
 }
@@ -2362,28 +2366,30 @@ function updateLiveStats() {
     document.getElementById('winRate').textContent = win+'%';
     document.getElementById('sc5').textContent = win+'%';
   }
-  // Mini-widget indices — sample values only in Demo mode (Live mode fetches real)
-  if (state.demo) {
-    if (us) {
-      document.getElementById('niftyLive').textContent = (5230+Math.random()*15).toFixed(2);
-      document.getElementById('bnfLive').textContent   = (16410+Math.random()*40).toFixed(2);
-      document.getElementById('vixLive').textContent   = (39120+Math.random()*60).toFixed(0);
-    } else {
-      document.getElementById('niftyLive').textContent = parseInt(24700+Math.random()*50).toLocaleString('en-IN');
-      document.getElementById('bnfLive').textContent   = parseInt(52100+Math.random()*150).toLocaleString('en-IN');
-      document.getElementById('vixLive').textContent   = (13.2+Math.random()*0.5).toFixed(1);
-    }
-    document.getElementById('sentGauge').textContent = 70+Math.floor(Math.random()*10);
-  }
+  // Header index values (NIFTY/BANKNIFTY/VIX or S&P/NDQ/DOW) are always pulled LIVE
+  loadRealIndices();
 }
 
-// Real index values for the mini-widget (Live mode) — Yahoo via proxy
-async function loadRealIndices() {
+// Real, live index values (Yahoo via proxy) — throttled to once per 20s
+let _idxAt = 0;
+async function loadRealIndices(force) {
+  if (!force && Date.now() - _idxAt < 20000) return;
+  _idxAt = Date.now();
   const us = isUS();
   const syms = us ? ['^GSPC','^IXIC','^DJI'] : ['^NSEI','^NSEBANK','^INDIAVIX'];
   const q = await Promise.all(syms.map(s => fetchYahooQuote(s)));
   const ids = ['niftyLive','bnfLive','vixLive'];
-  q.forEach((r, i) => { const el = document.getElementById(ids[i]); if (el) el.textContent = r ? r.price.toLocaleString(us?'en-US':'en-IN', {maximumFractionDigits:2}) : '—'; });
+  q.forEach((r, i) => {
+    const el = document.getElementById(ids[i]);
+    if (el && r) el.textContent = r.price.toLocaleString(us?'en-US':'en-IN', {maximumFractionDigits:2});
+  });
+  // refresh the Home index cards too, if present
+  if (document.getElementById('ovIndices') && state.activeTab === 'home') {
+    ['ovVal0','ovVal1','ovVal2'].forEach((id,i) => {
+      const card = document.getElementById(id), src = document.getElementById(ids[i]);
+      if (card && src) card.textContent = src.textContent;
+    });
+  }
 }
 
 // ─── BACKEND CHECK ───────────────────────────────────────────────────────────
@@ -3051,7 +3057,7 @@ function renderHome() {
       countUp(document.getElementById('ovVal'+i), target, us ? 'en-US' : 'en-IN');
     });
   }
-  if (!state.demo) loadRealIndices();
+  loadRealIndices(true);   // always show live index values on Home
   buildHomeSlides();
   mountMarketWidgets();
 }
