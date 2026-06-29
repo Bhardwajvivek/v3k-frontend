@@ -2948,7 +2948,8 @@ function closeModal(id) { document.getElementById(id).classList.remove('show'); 
 function tvSymbol(raw, market) {
   let s = (raw || '').toUpperCase().trim();
   const crypto = {BTC:'BINANCE:BTCUSDT',ETH:'BINANCE:ETHUSDT',BNB:'BINANCE:BNBUSDT',SOL:'BINANCE:SOLUSDT',
-                  ADA:'BINANCE:ADAUSDT',XRP:'BINANCE:XRPUSDT',LTC:'BINANCE:LTCUSDT',DOGE:'BINANCE:DOGEUSDT'};
+                  ADA:'BINANCE:ADAUSDT',XRP:'BINANCE:XRPUSDT',LTC:'BINANCE:LTCUSDT',DOGE:'BINANCE:DOGEUSDT',
+                  GOLD:'OANDA:XAUUSD',SILVER:'OANDA:XAGUSD'};
   if (crypto[s]) return crypto[s];
   s = s.split(/\s+/)[0].replace(/[^A-Z0-9.&]/g,'');  // first token (handles "SPY 525 CE")
   const idx = {
@@ -3036,34 +3037,50 @@ function startGalaxy() {
   const ARMS = 3, TWIST = 2.6;            // spiral arms + how tightly they wind
   const hexToRgb = (h) => { const n = parseInt(h.slice(1),16); return [n>>16&255, n>>8&255, n&255]; };
 
-  // Stars distributed along spiral arms, in a thin 3D disc (x,z plane; y = thickness)
+  // Stars along spiral arms in a thin 3D disc — Milky-Way coloring
+  // (golden, dense bulge in the core; blue-white young stars out on the arms)
   const stars = [];
-  for (let i = 0; i < 900; i++) {
-    const rr   = Math.pow(Math.random(), 0.6);            // 0..1 (denser core)
+  for (let i = 0; i < 1600; i++) {
+    const rr   = Math.pow(Math.random(), 0.55);           // 0..1 (denser core)
     const r    = rr * maxR;
     const arm  = (i % ARMS) * (Math.PI*2/ARMS);
-    const th   = arm + rr*TWIST + (Math.random()-0.5)*0.5; // spiral angle + scatter
-    const c = 200 + Math.floor(Math.random()*55);
-    const tint = Math.random();                            // some blue / amber stars
+    const th   = arm + rr*TWIST + (Math.random()-0.5)*(0.35 + rr*0.4); // tighter near core
+    let col;
+    if (rr < 0.28) col = [255, 225 - Math.random()*40, 150 + Math.random()*40];        // golden bulge
+    else { const t = Math.random();
+      col = t < 0.6 ? [200+Math.random()*55, 215+Math.random()*40, 255]                // blue-white
+          : t < 0.85 ? [255, 250, 235]                                                  // white
+          : [255, 200, 150]; }                                                          // warm specks
     stars.push({
-      r, th, y: (Math.random()-0.5) * 26 * (1-rr*0.6),     // thin disc
-      sp: 0.0016 + (1-rr)*0.004,                           // inner spins faster
-      sz: Math.random()*1.7 + 0.4, tw: Math.random()*6.28,
-      col: tint<0.7 ? [c,c,255] : tint<0.9 ? [255, c-30, 160] : [255, 220, 150]
+      r, th, y: (Math.random()-0.5) * 24 * (1-rr*0.55),
+      sp: 0.0015 + (1-rr)*0.0042,
+      sz: (rr < 0.28 ? 0.6 : 0.4) + Math.random()*1.7, tw: Math.random()*6.28, col
     });
   }
-  // Stock-name "planets" on their own 3D orbits
+  // Stock-name "planets" — US stocks at night, Indian stocks by day.
+  // {l: label/chart symbol, y: yahoo symbol for live quote, m: market}
   const NAMES = (isUS()
-    ? [['AAPL','#3b9dff'],['NVDA','#26a69a'],['MSFT','#7e8df2'],['TSLA','#ef5350'],['AMZN','#e0a93b'],['META','#3b9dff'],['GOOGL','#26a69a'],['S&P 500','#7e8df2'],['NASDAQ','#3b9dff'],['BTC','#e0a93b'],['ETH','#7e8df2'],['GOLD','#f0c674']]
-    : [['NIFTY','#3b9dff'],['RELIANCE','#26a69a'],['TCS','#7e8df2'],['HDFC','#3b9dff'],['INFY','#26a69a'],['SBIN','#e0a93b'],['BANKNIFTY','#ef8e54'],['TATA','#3b9dff'],['ADANI','#26a69a'],['BTC','#e0a93b'],['ETH','#7e8df2'],['GOLD','#f0c674']]);
+    ? [['AAPL','AAPL','us'],['NVDA','NVDA','us'],['MSFT','MSFT','us'],['TSLA','TSLA','us'],['AMZN','AMZN','us'],['META','META','us'],['GOOGL','GOOGL','us'],['SP500','^GSPC','us'],['NASDAQ','^IXIC','us'],['BTC','BTC-USD','us'],['ETH','ETH-USD','us'],['GOLD','GC=F','us']]
+    : [['NIFTY','^NSEI','india'],['BANKNIFTY','^NSEBANK','india'],['RELIANCE','RELIANCE.NS','india'],['TCS','TCS.NS','india'],['HDFCBANK','HDFCBANK.NS','india'],['INFY','INFY.NS','india'],['SBIN','SBIN.NS','india'],['TATAMOTORS','TATAMOTORS.NS','india'],['ADANIENT','ADANIENT.NS','india'],['BTC','BTC-USD','us'],['ETH','ETH-USD','us'],['GOLD','GC=F','us']]);
   const planets = NAMES.map((n, i) => ({
-    sym: n[0], rgb: hexToRgb(n[1]),
+    sym: n[0], ysym: n[1], market: n[2], rgb: [150,160,190], chg: null,
     r: (0.30 + (i % 5) * 0.14) * maxR,
     th: (i / NAMES.length) * Math.PI*2,
     y: (Math.random()-0.5) * 60,
     sp: 0.0022 + Math.random()*0.0016,
-    sz: 4 + Math.random()*3
+    sz: 5 + Math.random()*3,
+    sx: 0, sy: 0, ss: 0
   }));
+  // Live market mood → green for gainers, red for losers
+  const loadGalaxyQuotes = async () => {
+    await Promise.all(planets.map(async pl => {
+      try { const q = await fetchYahooQuote(pl.ysym);
+        if (q) { pl.chg = q.change; pl.rgb = q.change >= 0 ? [38,200,120] : [239,83,80]; }
+      } catch (e) {}
+    }));
+  };
+  loadGalaxyQuotes();
+  c._galaxyQuoteTimer = setInterval(loadGalaxyQuotes, 30000);
 
   let spin = 0, t0 = performance.now();
   _galaxyStop = false;
@@ -3118,8 +3135,9 @@ function startGalaxy() {
         ctx.beginPath(); ctx.arc(it.p.x, it.p.y, Math.max(0.3, st.sz*it.p.s), 0, Math.PI*2); ctx.fill();
       } else {
         const pl = it.o, [R,G,B] = pl.rgb, size = pl.sz * it.p.s;
+        pl.sx = it.p.x; pl.sy = it.p.y; pl.ss = Math.max(14, size*4);   // for tap hit-test
         const g = ctx.createRadialGradient(it.p.x, it.p.y, 0, it.p.x, it.p.y, size*4);
-        g.addColorStop(0, `rgba(${R},${G},${B},${(0.9*fog).toFixed(2)})`);
+        g.addColorStop(0, `rgba(${R},${G},${B},${(0.95*fog).toFixed(2)})`);
         g.addColorStop(1, 'transparent');
         ctx.fillStyle = g; ctx.beginPath(); ctx.arc(it.p.x, it.p.y, size*4, 0, Math.PI*2); ctx.fill();
         ctx.fillStyle = `rgba(${R},${G},${B},${fog.toFixed(2)})`;
@@ -3127,7 +3145,12 @@ function startGalaxy() {
         ctx.font = `700 ${Math.max(9, 13*it.p.s).toFixed(0)}px -apple-system, system-ui, sans-serif`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillStyle = `rgba(255,255,255,${(0.95*fog).toFixed(2)})`;
-        ctx.fillText(pl.sym, it.p.x, it.p.y - size - 11*it.p.s);
+        ctx.fillText(pl.sym, it.p.x, it.p.y - size - 12*it.p.s);
+        if (pl.chg != null) {
+          ctx.font = `600 ${Math.max(8, 10*it.p.s).toFixed(0)}px -apple-system, system-ui, sans-serif`;
+          ctx.fillStyle = `rgba(${R},${G},${B},${fog.toFixed(2)})`;
+          ctx.fillText((pl.chg>=0?'+':'') + pl.chg.toFixed(2) + '%', it.p.x, it.p.y + size + 11*it.p.s);
+        }
       }
     }
     if (!coreDrawn) drawCore();
@@ -3136,20 +3159,34 @@ function startGalaxy() {
   _galaxyRAF = requestAnimationFrame(draw);
 
   const sub = document.getElementById('galaxySub');
-  if (sub) sub.textContent = (isUS() ? 'US market' : 'Indian market') + ' names orbiting · live universe';
+  if (sub) sub.textContent = (isUS() ? 'US' : 'Indian') + ' market · green = gainers, red = losers · tap a name for its chart';
 
-  // any interaction exits the screensaver
-  setTimeout(() => {
-    ov.addEventListener('click', stopGalaxy, { once: true });
-    ov.addEventListener('touchstart', stopGalaxy, { once: true });
-  }, 300);
+  // Tap a planet → open its chart; tap empty space → exit
+  const onTap = (ev) => {
+    const rect = c.getBoundingClientRect();
+    const px = (ev.touches ? ev.touches[0].clientX : ev.clientX) - rect.left;
+    const py = (ev.touches ? ev.touches[0].clientY : ev.clientY) - rect.top;
+    let hit = null, best = 1e9;
+    for (const pl of planets) {
+      const d = Math.hypot(pl.sx - px, pl.sy - py);
+      if (d < pl.ss && d < best) { best = d; hit = pl; }
+    }
+    if (hit) { ev.preventDefault(); ev.stopPropagation(); stopGalaxy(); openChart(hit.sym, hit.market); }
+    else { stopGalaxy(); }
+  };
+  c._onTap = onTap;
+  setTimeout(() => { c.addEventListener('click', onTap); c.addEventListener('touchstart', onTap, { passive: false }); }, 300);
   c._resize = resize;
 }
 function stopGalaxy() {
   _galaxyStop = true;
   if (_galaxyRAF) cancelAnimationFrame(_galaxyRAF);
   const c = document.getElementById('galaxyCanvas');
-  if (c && c._resize) window.removeEventListener('resize', c._resize);
+  if (c) {
+    if (c._resize) window.removeEventListener('resize', c._resize);
+    if (c._onTap) { c.removeEventListener('click', c._onTap); c.removeEventListener('touchstart', c._onTap); }
+    if (c._galaxyQuoteTimer) { clearInterval(c._galaxyQuoteTimer); c._galaxyQuoteTimer = null; }
+  }
   document.getElementById('galaxyOverlay').classList.remove('show');
   resetIdle();
 }
