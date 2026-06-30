@@ -565,6 +565,8 @@
   .earth-shade { position:absolute; inset:0; border-radius:50%; pointer-events:none; background:
       radial-gradient(circle at 32% 26%, rgba(255,255,255,.5) 0 7%, transparent 26%),
       radial-gradient(circle at 72% 76%, rgba(0,0,0,.55), transparent 58%); }
+  .earth-globe-btn { width:72px; height:72px; cursor:pointer; transition:transform .2s, box-shadow .2s; }
+  .earth-globe-btn:hover { transform:scale(1.08); box-shadow:0 0 28px rgba(59,157,255,.75), inset -9px -9px 18px rgba(0,0,0,.6), inset 5px 5px 14px rgba(150,205,255,.45); }
 
   /* HOME HIGHLIGHT CARDS */
   .hl-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; margin-bottom: 26px; }
@@ -957,10 +959,9 @@
     <!-- Live highlight cards -->
     <div class="hl-grid" id="ovHighlights"></div>
 
-    <div style="display:flex;justify-content:center;margin:6px 0 22px;">
-      <div class="earth-btn" onclick="startGalaxy()" title="Enter the Market Galaxy">
-        <div class="earth-globe"><div class="earth-surface"></div><div class="earth-shade"></div></div>
-        <span>Enter Market Galaxy 🌌</span>
+    <div style="display:flex;justify-content:center;margin:6px 0 24px;">
+      <div class="earth-globe earth-globe-btn" onclick="startGalaxy()" title="Enter the Market Galaxy">
+        <div class="earth-surface"></div><div class="earth-shade"></div>
       </div>
     </div>
 
