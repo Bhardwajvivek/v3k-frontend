@@ -47,6 +47,27 @@
     --glow-cyan: 0 0 0 transparent;
     --glow-green: 0 0 0 transparent;
   }
+  /* Black — pure AMOLED black */
+  body.black {
+    --bg-primary: #000000;
+    --bg-secondary: #070708;
+    --bg-card: #0d0e10;
+    --bg-hover: #16181c;
+    --bg-ticker: #000000;
+    --accent-cyan: #3b9dff;
+    --accent-green: #26a69a;
+    --accent-red: #ef5350;
+    --accent-yellow: #e0a93b;
+    --accent-purple: #7e8df2;
+    --accent-orange: #ef8e54;
+    --text-primary: #e6e9ef;
+    --text-secondary: #7e8794;
+    --border: #1c1e22;
+    --card-shadow: none;
+    --gradient-main: linear-gradient(135deg, #000 0%, #070708 100%);
+    --glow-cyan: 0 0 16px rgba(59,157,255,0.16);
+    --glow-green: 0 0 16px rgba(38,166,154,0.16);
+  }
   body.light .stat-card, body.light .signal-card, body.light .risk-metric,
   body.light .news-card, body.light .position-card, body.light .scanner-card,
   body.light .prediction-card, body.light .crypto-card, body.light .home-portfolio,
@@ -521,6 +542,29 @@
   @keyframes galaxyPulse { 0%,100%{opacity:.4;} 50%{opacity:.9;} }
   .galaxy-launch { background: linear-gradient(135deg, #3b9dff, #7e8df2); color:#001226; border:none; border-radius:12px; padding:14px 18px; font-weight:800; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:8px; box-shadow: var(--card-shadow); }
   .galaxy-launch:hover { filter: brightness(1.08); }
+  /* Rotating Earth launch button */
+  .earth-btn { display:inline-flex; align-items:center; gap:14px; cursor:pointer; background:var(--bg-card); border:1px solid var(--border); border-radius:40px; padding:7px 24px 7px 7px; box-shadow:var(--card-shadow); transition:transform .2s, border-color .2s, box-shadow .2s; }
+  .earth-btn:hover { transform:translateY(-2px); border-color:var(--accent-cyan); box-shadow:0 8px 22px rgba(0,0,0,.25); }
+  .earth-btn span { font-weight:800; font-size:14px; color:var(--text-primary); }
+  .earth-globe { width:48px; height:48px; border-radius:50%; position:relative; overflow:hidden; flex-shrink:0;
+    box-shadow: 0 0 18px rgba(59,157,255,.55), inset -7px -7px 14px rgba(0,0,0,.6), inset 4px 4px 12px rgba(150,205,255,.4); }
+  .earth-surface { position:absolute; inset:0; border-radius:50%; background:
+      radial-gradient(circle at 18% 32%, #3fa34d 0 6%, transparent 7%),
+      radial-gradient(circle at 40% 62%, #2e7d32 0 9%, transparent 10%),
+      radial-gradient(circle at 63% 34%, #43a047 0 8%, transparent 9%),
+      radial-gradient(circle at 82% 66%, #357a38 0 7%, transparent 8%),
+      radial-gradient(circle at 52% 82%, #2e7d32 0 6%, transparent 7%),
+      linear-gradient(#1f7fd0, #0b5cb0);
+    background-size:200% 100%,200% 100%,200% 100%,200% 100%,200% 100%,100% 100%;
+    background-repeat:repeat-x;
+    animation: earthspin 9s linear infinite; }
+  @keyframes earthspin {
+    from { background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0; }
+    to   { background-position: -96px 0, -96px 0, -96px 0, -96px 0, -96px 0, 0 0; }
+  }
+  .earth-shade { position:absolute; inset:0; border-radius:50%; pointer-events:none; background:
+      radial-gradient(circle at 32% 26%, rgba(255,255,255,.5) 0 7%, transparent 26%),
+      radial-gradient(circle at 72% 76%, rgba(0,0,0,.55), transparent 58%); }
 
   /* HOME HIGHLIGHT CARDS */
   .hl-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; margin-bottom: 26px; }
@@ -911,7 +955,10 @@
     <div class="hl-grid" id="ovHighlights"></div>
 
     <div style="display:flex;justify-content:center;margin:6px 0 22px;">
-      <button class="galaxy-launch" onclick="startGalaxy()">🌌 Enter Market Galaxy</button>
+      <div class="earth-btn" onclick="startGalaxy()" title="Enter the Market Galaxy">
+        <div class="earth-globe"><div class="earth-surface"></div><div class="earth-shade"></div></div>
+        <span>Enter Market Galaxy 🌌</span>
+      </div>
     </div>
 
     <!-- Markets, everywhere — TradingView Symbol Overview (chart + index chips) -->
@@ -2208,19 +2255,23 @@ function renderLiveMode() {
   loadRealIndices();
   if (state.backendConnected) { loadLiveSignals(); loadLiveStats(); loadLiveIndices(); loadLiveSectors(); loadLivePredictions(); }
 }
+const THEMES = ['dark','light','black'];
+const THEME_LABEL = { dark: '🌙 Dark', light: '☀️ Light', black: '⚫ Black' };
 function applyTheme() {
-  const light = localStorage.getItem('v3k_theme') === 'light';
-  document.body.classList.toggle('light', light);
+  let th = localStorage.getItem('v3k_theme'); if (!THEMES.includes(th)) th = 'dark';
+  document.body.classList.toggle('light', th === 'light');
+  document.body.classList.toggle('black', th === 'black');
   const btn = document.getElementById('themeBtn');
-  if (btn) btn.textContent = light ? '☀️ Light' : '🌙 Dark';
+  if (btn) btn.textContent = THEME_LABEL[th];
 }
 function toggleTheme() {
-  const light = localStorage.getItem('v3k_theme') !== 'light';
-  localStorage.setItem('v3k_theme', light ? 'light' : 'dark');
+  let th = localStorage.getItem('v3k_theme'); if (!THEMES.includes(th)) th = 'dark';
+  const next = THEMES[(THEMES.indexOf(th) + 1) % THEMES.length];
+  localStorage.setItem('v3k_theme', next);
   applyTheme();
   _tickerMounted = ''; buildTicker();   // re-theme the live ticker
   if (state.activeTab === 'home' && typeof mountMarketWidgets === 'function') mountMarketWidgets();
-  showToast(light ? '☀️ Light theme' : '🌙 Dark theme', 'info');
+  showToast(THEME_LABEL[next] + ' theme', 'info');
 }
 function toggleAuto() {
   state.autoRefresh = !state.autoRefresh;
@@ -2286,6 +2337,9 @@ async function runAiScan() {
 // alertSignal — defined below in Telegram Alert section
 function toggleChip(el, filter) {
   el.classList.toggle('active');
+  // filters act on signal cards — make sure we're on a tab that shows them
+  const signalTabs = ['signals','ultimate','options','scalping','multitf'];
+  if (!signalTabs.includes(state.activeTab)) switchTab('signals');
   filterSignals();
 }
 function resetFilters() {
@@ -3032,7 +3086,9 @@ function startGalaxy() {
   window.addEventListener('resize', resize);
 
   // ── 3D galaxy: a tilted spiral disc projected with perspective ──
-  const maxR = Math.min(W, H) * 0.46;
+  const maxR = Math.min(W, H) * 0.62;        // spread to fill most of the screen
+  const comets = [];                          // shooting stars
+  let nextComet = 0;
   const FOV  = 700;                       // perspective focal length
   const ARMS = 3, TWIST = 2.6;            // spiral arms + how tightly they wind
   const hexToRgb = (h) => { const n = parseInt(h.slice(1),16); return [n>>16&255, n>>8&255, n&255]; };
@@ -3067,15 +3123,21 @@ function startGalaxy() {
     r: (0.30 + (i % 5) * 0.14) * maxR,
     th: (i / NAMES.length) * Math.PI*2,
     y: (Math.random()-0.5) * 60,
+    baseSp: 0.0022 + Math.random()*0.0016,
     sp: 0.0022 + Math.random()*0.0016,
-    sz: 5 + Math.random()*3,
+    sz: 5 + Math.random()*3, mag: 0,
     sx: 0, sy: 0, ss: 0
   }));
-  // Live market mood → green for gainers, red for losers
+  // Live market mood → green for gainers, red for losers; bigger movers glow + spin more
   const loadGalaxyQuotes = async () => {
     await Promise.all(planets.map(async pl => {
       try { const q = await fetchYahooQuote(pl.ysym);
-        if (q) { pl.chg = q.change; pl.rgb = q.change >= 0 ? [38,200,120] : [239,83,80]; }
+        if (q) {
+          pl.chg = q.change;
+          pl.rgb = q.change >= 0 ? [38,200,120] : [239,83,80];
+          pl.mag = Math.min(1, Math.abs(q.change) / 4);   // strength of the move
+          pl.sp  = pl.baseSp * (1 + pl.mag * 2.0);          // big movers orbit faster
+        }
       } catch (e) {}
     }));
   };
@@ -3099,6 +3161,26 @@ function startGalaxy() {
     neb.addColorStop(0.45, `hsla(${(hue+280)%360},70%,55%,0.09)`);
     neb.addColorStop(1, 'rgba(3,4,10,0)');
     ctx.fillStyle = neb; ctx.fillRect(0, 0, W, H);
+
+    // ── comets / shooting stars ──
+    if (now > nextComet) {
+      nextComet = now + 2600 + Math.random()*4200;
+      const edge = Math.random() < 0.5;
+      comets.push({
+        x: edge ? -40 : Math.random()*W, y: edge ? Math.random()*H*0.6 : -40,
+        vx: 5 + Math.random()*5, vy: 3 + Math.random()*4, life: 1
+      });
+    }
+    for (let i = comets.length-1; i >= 0; i--) {
+      const cm = comets[i]; cm.x += cm.vx*2.2; cm.y += cm.vy*2.2; cm.life -= 0.012;
+      if (cm.life <= 0 || cm.x > W+60 || cm.y > H+60) { comets.splice(i,1); continue; }
+      const tx = cm.x - cm.vx*9, ty = cm.y - cm.vy*9;
+      const grad = ctx.createLinearGradient(tx, ty, cm.x, cm.y);
+      grad.addColorStop(0, 'rgba(255,255,255,0)');
+      grad.addColorStop(1, `rgba(180,220,255,${(cm.life*0.9).toFixed(2)})`);
+      ctx.strokeStyle = grad; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(cm.x, cm.y); ctx.stroke();
+      ctx.fillStyle = `rgba(255,255,255,${cm.life.toFixed(2)})`; ctx.beginPath(); ctx.arc(cm.x, cm.y, 2, 0, Math.PI*2); ctx.fill();
+    }
 
     // project a disc point (r,theta,y) → screen with perspective
     const proj = (r, th, y) => {
@@ -3135,11 +3217,14 @@ function startGalaxy() {
         ctx.beginPath(); ctx.arc(it.p.x, it.p.y, Math.max(0.3, st.sz*it.p.s), 0, Math.PI*2); ctx.fill();
       } else {
         const pl = it.o, [R,G,B] = pl.rgb, size = pl.sz * it.p.s;
-        pl.sx = it.p.x; pl.sy = it.p.y; pl.ss = Math.max(14, size*4);   // for tap hit-test
-        const g = ctx.createRadialGradient(it.p.x, it.p.y, 0, it.p.x, it.p.y, size*4);
-        g.addColorStop(0, `rgba(${R},${G},${B},${(0.95*fog).toFixed(2)})`);
+        // big movers glow bigger + pulse stronger
+        const pulse = 1 + Math.sin(t*3 + pl.th) * 0.18 * (0.4 + pl.mag);
+        const halo = size * (4 + pl.mag*7) * pulse;
+        pl.sx = it.p.x; pl.sy = it.p.y; pl.ss = Math.max(16, halo*0.8);   // for tap hit-test
+        const g = ctx.createRadialGradient(it.p.x, it.p.y, 0, it.p.x, it.p.y, halo);
+        g.addColorStop(0, `rgba(${R},${G},${B},${((0.55 + pl.mag*0.4)*fog).toFixed(2)})`);
         g.addColorStop(1, 'transparent');
-        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(it.p.x, it.p.y, size*4, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(it.p.x, it.p.y, halo, 0, Math.PI*2); ctx.fill();
         ctx.fillStyle = `rgba(${R},${G},${B},${fog.toFixed(2)})`;
         ctx.beginPath(); ctx.arc(it.p.x, it.p.y, Math.max(1.5,size), 0, Math.PI*2); ctx.fill();
         ctx.font = `700 ${Math.max(9, 13*it.p.s).toFixed(0)}px -apple-system, system-ui, sans-serif`;
