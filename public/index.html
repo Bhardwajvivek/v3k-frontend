@@ -108,7 +108,12 @@
   .hamburger { background: none; border: none; color: var(--text-primary); cursor: pointer; font-size: 20px; padding: 6px; border-radius: 6px; transition: background 0.2s; flex-shrink: 0; }
   .hamburger:hover { background: var(--bg-hover); }
   .header-brand { display: flex; align-items: center; gap: 10px; }
-  .brand-logo { width: 32px; height: 32px; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple)); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 12px; flex-shrink: 0; }
+  .brand-logo { width: 38px; height: 38px; border-radius: 50%; position: relative; overflow: hidden; flex-shrink: 0;
+    box-shadow: 0 0 12px rgba(59,157,255,.5), inset -5px -5px 11px rgba(0,0,0,.6), inset 3px 3px 9px rgba(150,205,255,.4); }
+  .brand-logo .earth-surface, .brand-logo .earth-shade { border-radius: 50%; }
+  .brand-logo-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-weight: 900; font-size: 12px; letter-spacing: 0.5px; color: rgba(255,255,255,0.92);
+    text-shadow: 0 1px 3px rgba(0,0,0,0.8), 0 0 8px rgba(59,157,255,0.6); z-index: 2; pointer-events: none; }
   .brand-text { font-size: 16px; font-weight: 800; color: var(--accent-cyan); white-space: nowrap; }
   .brand-sub { font-size: 10px; color: var(--text-secondary); }
   .header-stats { display: flex; gap: 12px; align-items: center; margin-left: auto; flex-wrap: wrap; }
@@ -813,7 +818,7 @@
 <header class="header">
   <button class="hamburger" onclick="toggleSidebar()">☰</button>
   <div class="header-brand">
-    <div class="brand-logo">V3K</div>
+    <div class="brand-logo earth-globe"><div class="earth-surface"></div><div class="earth-shade"></div><span class="brand-logo-text">V3K</span></div>
     <div>
       <div class="brand-text">V3K AI Trading Bot Pro</div>
       <div class="brand-sub" id="brandSub">NSE • BSE • F&O • Crypto</div>
