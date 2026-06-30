@@ -842,6 +842,9 @@
   </div>
 </header>
 
+<!-- STOCK TICKER (US stocks at night · Indian stocks by day) -->
+<div class="ticker-bar" id="stockTickerBar"></div>
+
 <!-- BACKEND STATUS -->
 <div class="backend-status">
   <div class="backend-dot" id="backendDot"></div>
@@ -1938,6 +1941,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   applyTheme();         // restore saved light/dark theme
   initAccess();         // show login/paywall gate first
   buildTicker();
+  buildStockTicker();
   renderAllTabs();      // render demo data immediately so page isn't blank
   loadRealNews(true);   // replace demo news with real latest market news (no backend needed)
   buildNotifications();
@@ -2018,6 +2022,31 @@ function buildTicker() {
 }
 
 function updateTickerPrices() { /* ticker is now a live TradingView widget — no manual update needed */ }
+
+// Second ticker line: live STOCKS — US stocks at night, Indian stocks by day
+let _stockTickerKey = '';
+function buildStockTicker() {
+  const host = document.getElementById('stockTickerBar');
+  if (!host) return;
+  const theme = document.body.classList.contains('light') ? 'light' : 'dark';
+  const us = isUS();
+  const key = theme + (us ? 'us' : 'in');
+  if (_stockTickerKey === key) return;
+  _stockTickerKey = key;
+  const symbols = us
+    ? [['NASDAQ:AAPL','Apple'],['NASDAQ:NVDA','NVIDIA'],['NASDAQ:MSFT','Microsoft'],['NASDAQ:TSLA','Tesla'],
+       ['NASDAQ:AMZN','Amazon'],['NASDAQ:META','Meta'],['NASDAQ:GOOGL','Alphabet'],['NASDAQ:NFLX','Netflix'],
+       ['NYSE:JPM','JPMorgan'],['NASDAQ:AMD','AMD']]
+    : [['NSE:RELIANCE','Reliance'],['NSE:TCS','TCS'],['NSE:HDFCBANK','HDFC Bank'],['NSE:INFY','Infosys'],
+       ['NSE:ICICIBANK','ICICI'],['NSE:SBIN','SBI'],['NSE:TATAMOTORS','Tata Motors'],['NSE:ADANIENT','Adani'],
+       ['NSE:BHARTIARTL','Airtel'],['NSE:ITC','ITC']];
+  if (typeof mountTVWidget === 'function') {
+    mountTVWidget('stockTickerBar', 'https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js', {
+      symbols: symbols.map(s => ({ proName: s[0], title: s[1] })),
+      showSymbolLogo: true, isTransparent: true, displayMode: 'compact', colorTheme: theme, locale: 'en'
+    });
+  }
+}
 
 // ─── SIGNAL CARD BUILDER ─────────────────────────────────────────────────────
 function buildSignalCard(s) {
@@ -2270,6 +2299,7 @@ function toggleTheme() {
   localStorage.setItem('v3k_theme', next);
   applyTheme();
   _tickerMounted = ''; buildTicker();   // re-theme the live ticker
+  _stockTickerKey = ''; buildStockTicker();
   if (state.activeTab === 'home' && typeof mountMarketWidgets === 'function') mountMarketWidgets();
   showToast(THEME_LABEL[next] + ' theme', 'info');
 }
@@ -3100,7 +3130,7 @@ function startGalaxy() {
     const rr   = Math.pow(Math.random(), 0.55);           // 0..1 (denser core)
     const r    = rr * maxR;
     const arm  = (i % ARMS) * (Math.PI*2/ARMS);
-    const th   = arm + rr*TWIST + (Math.random()-0.5)*(0.35 + rr*0.4); // tighter near core
+    const th   = arm + rr*TWIST + (Math.random()-0.5)*(0.9 + rr*0.9); // wider, more spread-out arms
     let col;
     if (rr < 0.28) col = [255, 225 - Math.random()*40, 150 + Math.random()*40];        // golden bulge
     else { const t = Math.random();
@@ -3108,9 +3138,9 @@ function startGalaxy() {
           : t < 0.85 ? [255, 250, 235]                                                  // white
           : [255, 200, 150]; }                                                          // warm specks
     stars.push({
-      r, th, y: (Math.random()-0.5) * 24 * (1-rr*0.55),
-      sp: 0.0015 + (1-rr)*0.0042,
-      sz: (rr < 0.28 ? 0.6 : 0.4) + Math.random()*1.7, tw: Math.random()*6.28, col
+      r, th, y: (Math.random()-0.5) * 40 * (1-rr*0.5),     // thicker, more spread disc
+      sp: 0.0006 + (1-rr)*0.0016,                          // slower drift
+      sz: (rr < 0.28 ? 0.7 : 0.5) + Math.random()*1.9, tw: Math.random()*6.28, col
     });
   }
   // Stock-name "planets" — US stocks at night, Indian stocks by day.
@@ -3123,8 +3153,8 @@ function startGalaxy() {
     r: (0.30 + (i % 5) * 0.14) * maxR,
     th: (i / NAMES.length) * Math.PI*2,
     y: (Math.random()-0.5) * 60,
-    baseSp: 0.0022 + Math.random()*0.0016,
-    sp: 0.0022 + Math.random()*0.0016,
+    baseSp: 0.0006 + Math.random()*0.0005,
+    sp: 0.0006 + Math.random()*0.0005,
     sz: 5 + Math.random()*3, mag: 0,
     sx: 0, sy: 0, ss: 0
   }));
@@ -3136,7 +3166,7 @@ function startGalaxy() {
           pl.chg = q.change;
           pl.rgb = q.change >= 0 ? [38,200,120] : [239,83,80];
           pl.mag = Math.min(1, Math.abs(q.change) / 4);   // strength of the move
-          pl.sp  = pl.baseSp * (1 + pl.mag * 2.0);          // big movers orbit faster
+          pl.sp  = pl.baseSp * (1 + pl.mag * 0.9);          // big movers orbit a bit faster
         }
       } catch (e) {}
     }));
@@ -3149,7 +3179,7 @@ function startGalaxy() {
   const draw = (now) => {
     if (_galaxyStop) return;
     const t = (now - t0) / 1000;
-    spin += 0.0016;
+    spin += 0.00045;   // slower overall rotation
     const tilt = 1.02 + Math.sin(t*0.18) * 0.16;   // "breathing" 3D tilt (extra dimension)
     const sinT = Math.sin(tilt), cosT = Math.cos(tilt);
     const hue = (t*8) % 360;                         // slow hue drift
@@ -3193,7 +3223,7 @@ function startGalaxy() {
 
     // collect, sort far→near (painter's algorithm)
     const items = [];
-    for (const st of stars) { st.th += st.sp + 0.0006; st.tw += 0.04;
+    for (const st of stars) { st.th += st.sp; st.tw += 0.03;
       const p = proj(st.r, st.th + spin, st.y); items.push({ t:'s', o:st, p }); }
     for (const pl of planets) { pl.th += pl.sp;
       const p = proj(pl.r, pl.th + spin, pl.y); items.push({ t:'p', o:pl, p }); }
@@ -3751,6 +3781,7 @@ function applyMarketMode() {
   if (market === 'us') { renderVested(); if (state.backendConnected) refreshVestedPrices(); }
   renderHomePortfolio();
   if (changed) loadRealNews(true);   // refresh news for the active market (India/US)
+  if (changed && typeof buildStockTicker === 'function') buildStockTicker();
   if (state.activeTab === 'home' && typeof mountMarketWidgets === 'function') mountMarketWidgets();
 
   // Pull live data for the active market
