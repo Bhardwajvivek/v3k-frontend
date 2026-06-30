@@ -94,6 +94,10 @@
 
   /* TICKER */
   .ticker-bar { background: var(--bg-ticker); border-bottom: 1px solid var(--border); min-height: 46px; overflow: hidden; position: relative; }
+  .ticker-bar.thin { min-height: 30px; height: 30px; }
+  .stk-item { display: inline-flex; align-items: center; gap: 6px; padding: 0 18px; height: 30px; font-size: 12px; border-right: 1px solid rgba(255,255,255,0.06); }
+  .stk-name { color: #5cb3ff; font-weight: 600; }
+  .stk-price { color: #e6edf3; font-weight: 700; }
   .ticker-track { display: flex; gap: 0; white-space: nowrap; animation: ticker-scroll 45s linear infinite; position: absolute; top: 0; }
   .ticker-track:hover { animation-play-state: paused; }
   .ticker-item { display: inline-flex; align-items: center; gap: 6px; padding: 0 24px; height: 36px; font-size: 12px; border-right: 1px solid #1e2635; }
@@ -849,8 +853,8 @@
   </div>
 </header>
 
-<!-- STOCK TICKER (US stocks at night · Indian stocks by day) -->
-<div class="ticker-bar" id="stockTickerBar"></div>
+<!-- STOCK TICKER (US stocks at night · Indian stocks by day) — name + price only -->
+<div class="ticker-bar thin" id="stockTickerBar"></div>
 
 <!-- BACKEND STATUS -->
 <div class="backend-status">
@@ -2029,29 +2033,30 @@ function buildTicker() {
 
 function updateTickerPrices() { /* ticker is now a live TradingView widget — no manual update needed */ }
 
-// Second ticker line: live STOCKS — US stocks at night, Indian stocks by day
-let _stockTickerKey = '';
-function buildStockTicker() {
+// Second ticker line: live STOCKS — name + price only (US at night, India by day)
+let _stkTimer = null, _stockTickerKey = '';
+async function buildStockTicker() {
   const host = document.getElementById('stockTickerBar');
   if (!host) return;
-  const theme = document.body.classList.contains('light') ? 'light' : 'dark';
   const us = isUS();
-  const key = theme + (us ? 'us' : 'in');
-  if (_stockTickerKey === key) return;
-  _stockTickerKey = key;
-  const symbols = us
-    ? [['NASDAQ:AAPL','Apple'],['NASDAQ:NVDA','NVIDIA'],['NASDAQ:MSFT','Microsoft'],['NASDAQ:TSLA','Tesla'],
-       ['NASDAQ:AMZN','Amazon'],['NASDAQ:META','Meta'],['NASDAQ:GOOGL','Alphabet'],['NASDAQ:NFLX','Netflix'],
-       ['NYSE:JPM','JPMorgan'],['NASDAQ:AMD','AMD']]
-    : [['NSE:RELIANCE','Reliance'],['NSE:TCS','TCS'],['NSE:HDFCBANK','HDFC Bank'],['NSE:INFY','Infosys'],
-       ['NSE:ICICIBANK','ICICI'],['NSE:SBIN','SBI'],['NSE:TATAMOTORS','Tata Motors'],['NSE:ADANIENT','Adani'],
-       ['NSE:BHARTIARTL','Airtel'],['NSE:ITC','ITC']];
-  if (typeof mountTVWidget === 'function') {
-    mountTVWidget('stockTickerBar', 'https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js', {
-      symbols: symbols.map(s => ({ proName: s[0], title: s[1] })),
-      showSymbolLogo: true, isTransparent: true, displayMode: 'compact', colorTheme: theme, locale: 'en'
-    });
-  }
+  const list = us
+    ? [['AAPL','Apple'],['NVDA','NVIDIA'],['MSFT','Microsoft'],['TSLA','Tesla'],['AMZN','Amazon'],
+       ['META','Meta'],['GOOGL','Alphabet'],['NFLX','Netflix'],['JPM','JPMorgan'],['AMD','AMD']]
+    : [['RELIANCE','Reliance'],['TCS','TCS'],['HDFCBANK','HDFC Bank'],['INFY','Infosys'],['ICICIBANK','ICICI'],
+       ['SBIN','SBI'],['TATAMOTORS','Tata Motors'],['ADANIENT','Adani'],['BHARTIARTL','Airtel'],['ITC','ITC']];
+  const cur = us ? '$' : '₹';
+  const quotes = await Promise.all(list.map(async it => {
+    const q = await fetchYahooQuote(us ? it[0] : it[0] + '.NS');
+    return { name: it[1], price: q ? q.price : null };
+  }));
+  const items = quotes.filter(q => q.price != null);
+  if (!items.length) { if (_stkTimer) clearTimeout(_stkTimer); _stkTimer = setTimeout(buildStockTicker, 30000); return; }
+  const html = items.map(q =>
+    `<div class="stk-item"><span class="stk-name">${q.name}</span><span class="stk-price">${cur}${q.price.toLocaleString(us?'en-US':'en-IN',{maximumFractionDigits:2})}</span></div>`
+  ).join('');
+  host.innerHTML = `<div class="ticker-track">${html}${html}</div>`;   // duplicate for seamless scroll
+  if (_stkTimer) clearTimeout(_stkTimer);
+  _stkTimer = setTimeout(buildStockTicker, 30000);   // refresh prices every 30s
 }
 
 // ─── SIGNAL CARD BUILDER ─────────────────────────────────────────────────────
