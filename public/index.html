@@ -98,6 +98,7 @@
   .stk-item { display: inline-flex; align-items: center; gap: 6px; padding: 0 18px; height: 30px; font-size: 12px; border-right: 1px solid rgba(255,255,255,0.06); }
   .stk-name { color: #5cb3ff; font-weight: 600; }
   .stk-price { color: #e6edf3; font-weight: 700; }
+  .ticker-track-slow { animation-duration: 140s; }  /* slower for the long NIFTY 50 list */
   .ticker-track { display: flex; gap: 0; white-space: nowrap; animation: ticker-scroll 45s linear infinite; position: absolute; top: 0; }
   .ticker-track:hover { animation-play-state: paused; }
   .ticker-item { display: inline-flex; align-items: center; gap: 6px; padding: 0 24px; height: 36px; font-size: 12px; border-right: 1px solid #1e2635; }
@@ -2041,28 +2042,52 @@ function buildTicker() {
 
 function updateTickerPrices() { /* ticker is now a live TradingView widget — no manual update needed */ }
 
-// Second ticker line: live STOCKS — name + price only (US at night, India by day)
-let _stkTimer = null, _stockTickerKey = '';
+// Full NIFTY 50 constituents (day) and a broad US large-cap list (night)
+const NIFTY50 = ['RELIANCE','HDFCBANK','ICICIBANK','INFY','TCS','ITC','LT','SBIN','BHARTIARTL','KOTAKBANK',
+  'HINDUNILVR','BAJFINANCE','AXISBANK','HCLTECH','MARUTI','SUNPHARMA','TITAN','ADANIENT','ONGC','NTPC',
+  'TATAMOTORS','ULTRACEMCO','ASIANPAINT','POWERGRID','WIPRO','M&M','ADANIPORTS','COALINDIA','BAJAJFINSV','NESTLEIND',
+  'JSWSTEEL','TATASTEEL','TECHM','GRASIM','HDFCLIFE','SBILIFE','DRREDDY','CIPLA','BRITANNIA','HINDALCO',
+  'EICHERMOT','INDUSINDBK','APOLLOHOSP','BAJAJ-AUTO','HEROMOTOCO','TATACONSUM','BPCL','SHRIRAMFIN','LTIM','TRENT'];
+const US_TICKER_LIST = ['AAPL','MSFT','NVDA','AMZN','GOOGL','META','TSLA','AVGO','JPM','V','WMT','MA','JNJ','ORCL',
+  'HD','PG','COST','NFLX','AMD','ADBE','CRM','KO','PEP','BAC','MCD','CSCO','INTC','QCOM','DIS','NKE','TXN','WFC',
+  'ABT','IBM','GE','PYPL','UBER','PFE','T','BA'];
+
+// Fetch many symbols' live prices in one shot (Yahoo spark endpoint), via CORS proxy
+async function fetchYahooSpark(symbols) {
+  const out = {};
+  for (let i = 0; i < symbols.length; i += 25) {
+    const chunk = symbols.slice(i, i + 25);
+    const u = 'https://query1.finance.yahoo.com/v7/finance/spark?symbols=' + chunk.join(',') + '&range=1d&interval=1d';
+    const enc = encodeURIComponent(u);
+    const attempts = ['https://corsproxy.io/?url=' + enc, 'https://api.allorigins.win/raw?url=' + enc, 'https://thingproxy.freeboard.io/fetch/' + u];
+    for (const p of attempts) {
+      try {
+        const r = await fetch(p, { signal: AbortSignal.timeout(11000) }); if (!r.ok) continue;
+        const j = await r.json();
+        const res = j && j.spark && j.spark.result;
+        if (res) { res.forEach(x => { const m = x.response && x.response[0] && x.response[0].meta; if (m && m.regularMarketPrice != null) out[x.symbol] = m.regularMarketPrice; }); break; }
+      } catch (e) {}
+    }
+  }
+  return out;
+}
+
+// Second ticker line: live STOCKS name + price — all NIFTY 50 by day, US large-caps at night
+let _stkTimer = null;
 async function buildStockTicker() {
   const host = document.getElementById('stockTickerBar');
   if (!host) return;
   const us = isUS();
-  const list = us
-    ? [['AAPL','Apple'],['NVDA','NVIDIA'],['MSFT','Microsoft'],['TSLA','Tesla'],['AMZN','Amazon'],
-       ['META','Meta'],['GOOGL','Alphabet'],['NFLX','Netflix'],['JPM','JPMorgan'],['AMD','AMD']]
-    : [['RELIANCE','Reliance'],['TCS','TCS'],['HDFCBANK','HDFC Bank'],['INFY','Infosys'],['ICICIBANK','ICICI'],
-       ['SBIN','SBI'],['TATAMOTORS','Tata Motors'],['ADANIENT','Adani'],['BHARTIARTL','Airtel'],['ITC','ITC']];
+  const base = us ? US_TICKER_LIST : NIFTY50;
+  const ysyms = base.map(s => us ? s : s + '.NS');
+  const prices = await fetchYahooSpark(ysyms);
   const cur = us ? '$' : '₹';
-  const quotes = await Promise.all(list.map(async it => {
-    const q = await fetchYahooQuote(us ? it[0] : it[0] + '.NS');
-    return { name: it[1], price: q ? q.price : null };
-  }));
-  const items = quotes.filter(q => q.price != null);
+  const items = base.map((s, i) => ({ name: s.replace('.NS',''), price: prices[ysyms[i]] })).filter(x => x.price != null);
   if (!items.length) { if (_stkTimer) clearTimeout(_stkTimer); _stkTimer = setTimeout(buildStockTicker, 30000); return; }
   const html = items.map(q =>
     `<div class="stk-item"><span class="stk-name">${q.name}</span><span class="stk-price">${cur}${q.price.toLocaleString(us?'en-US':'en-IN',{maximumFractionDigits:2})}</span></div>`
   ).join('');
-  host.innerHTML = `<div class="ticker-track">${html}${html}</div>`;   // duplicate for seamless scroll
+  host.innerHTML = `<div class="ticker-track ticker-track-slow">${html}${html}</div>`;
   if (_stkTimer) clearTimeout(_stkTimer);
   _stkTimer = setTimeout(buildStockTicker, 30000);   // refresh prices every 30s
 }
@@ -2321,7 +2346,7 @@ function toggleTheme() {
   localStorage.setItem('v3k_theme', next);
   applyTheme();
   _tickerMounted = ''; buildTicker();   // re-theme the live ticker
-  _stockTickerKey = ''; buildStockTicker();
+  buildStockTicker();
   if (state.activeTab === 'home' && typeof mountMarketWidgets === 'function') mountMarketWidgets();
   showToast(THEME_LABEL[next] + ' theme', 'info');
 }
