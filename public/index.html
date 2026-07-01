@@ -4295,10 +4295,41 @@ async function fetchYahooHistory(ySym) {
 function _sma(a,n,i){ if(i+1<n) return null; let s=0,c=0; for(let k=i+1-n;k<=i;k++){ if(a[k]!=null){s+=a[k];c++;} } return c?s/c:null; }
 function _rsi(close,i,n){ n=n||14; if(i<n) return 50; let g=0,l=0; for(let k=i-n+1;k<=i;k++){ const d=close[k]-close[k-1]; if(d>=0)g+=d; else l-=d; } if(l===0) return 100; const rs=(g/n)/(l/n); return 100-100/(1+rs); }
 function _atr(high,low,close,i,n){ n=n||14; if(i<n) return null; let s=0; for(let k=i-n+1;k<=i;k++){ s+=Math.max(high[k]-low[k], Math.abs(high[k]-close[k-1]), Math.abs(low[k]-close[k-1])); } return s/n; }
-function _backtestSMA(close){
+function _emaArr(src,n){ const out=new Array(src.length).fill(null); const k=2/(n+1); let prev=null;
+  for(let i=0;i<src.length;i++){ const v=(src[i]==null?prev:src[i]); if(v==null){out[i]=null;continue;} prev=prev==null?v:v*k+prev*(1-k); out[i]=prev; } return out; }
+function _rsiArr(close,n){ n=n||14; const out=new Array(close.length).fill(null); let ag=0,al=0;
+  for(let i=1;i<close.length;i++){ const a=close[i]??close[i-1], b=close[i-1]??close[i]; const d=a-b, g=Math.max(d,0), l=Math.max(-d,0);
+    if(i<=n){ ag+=g; al+=l; if(i===n){ ag/=n; al/=n; out[i]= al===0?100:100-100/(1+ag/al); } }
+    else { ag=(ag*(n-1)+g)/n; al=(al*(n-1)+l)/n; out[i]= al===0?100:100-100/(1+ag/al); } }
+  return out; }
+// Multi-factor composite: trend (EMA20/50/200) + momentum (MACD hist, RSI) + breakout (Donchian) + volume
+function _buildIndicators(close, high, low, vol){
+  const ema20=_emaArr(close,20), ema50=_emaArr(close,50), ema200=_emaArr(close,200);
+  const e12=_emaArr(close,12), e26=_emaArr(close,26);
+  const macd=close.map((_,i)=> (e12[i]!=null&&e26[i]!=null)? e12[i]-e26[i] : null);
+  const sig=_emaArr(macd.map(x=>x==null?0:x),9);
+  const hist=macd.map((m,i)=> m!=null? m-(sig[i]||0) : null);
+  const rsi=_rsiArr(close,14);
+  const donHigh=close.map((_,i)=>{ if(i<20) return null; let mx=-1e18; for(let k=i-20;k<i;k++) if(high[k]!=null) mx=Math.max(mx,high[k]); return mx; });
+  const donLow =close.map((_,i)=>{ if(i<20) return null; let mn= 1e18; for(let k=i-20;k<i;k++) if(low[k]!=null)  mn=Math.min(mn,low[k]); return mn; });
+  const volAvg=close.map((_,i)=> _sma(vol,20,i));
+  return {ema20,ema50,ema200,hist,rsi,donHigh,donLow,volAvg};
+}
+function _score(ind, close, vol, i){
+  let s=0; const {ema20,ema50,ema200,hist,rsi,donHigh,donLow,volAvg}=ind;
+  if(ema20[i]!=null&&ema50[i]!=null) s += ema20[i]>ema50[i]?1:-1;
+  if(ema50[i]!=null&&ema200[i]!=null) s += ema50[i]>ema200[i]?1:-1;     // long-term regime
+  if(ema20[i]!=null) s += close[i]>ema20[i]?1:-1;
+  if(hist[i]!=null) s += hist[i]>0?1:-1;                                 // MACD momentum
+  const r=rsi[i]; if(r!=null){ if(r>52&&r<78) s+=1; else if(r<48&&r>22) s-=1; }
+  if(i>0&&donHigh[i-1]!=null){ if(close[i]>=donHigh[i-1]) s+=1; else if(close[i]<=donLow[i-1]) s-=1; } // breakout
+  if(volAvg[i]&&vol[i]){ const vr=vol[i]/volAvg[i]; if(vr>1.2) s += (s>=0?1:-1); }                      // volume confirms move
+  return s;   // ~ -7..7
+}
+function _backtestComposite(close, ind, vol){
   let pos=false, entry=0; const trades=[];
-  for(let i=0;i<close.length;i++){ const s20=_sma(close,20,i), s50=_sma(close,50,i); if(s20==null||s50==null||close[i]==null) continue;
-    if(!pos && s20>s50){ pos=true; entry=close[i]; } else if(pos && s20<s50){ trades.push(close[i]/entry-1); pos=false; } }
+  for(let i=50;i<close.length;i++){ if(close[i]==null) continue; const s=_score(ind,close,vol,i);
+    if(!pos && s>=3){ pos=true; entry=close[i]; } else if(pos && s<=-1){ trades.push(close[i]/entry-1); pos=false; } }
   if(pos) trades.push(close[close.length-1]/entry-1);
   const win = trades.length ? Math.round(100*trades.filter(t=>t>0).length/trades.length) : 0;
   const avg = trades.length ? +(100*trades.reduce((a,b)=>a+b,0)/trades.length).toFixed(1) : 0;
@@ -4320,26 +4351,34 @@ async function generateLiveSignals(force) {
     const h = await fetchYahooHistory(ysym); if (!h) return;
     const close = h.close, high = h.high, low = h.low, vol = h.vol;
     let li = close.length - 1; while (li > 0 && close[li] == null) li--;
+    if (li < 60) return;
     const price = h.price || close[li];
-    const s20 = _sma(close,20,li), s50 = _sma(close,50,li); if (s20 == null || s50 == null) return;
-    const rsi = _rsi(close,li), atr = _atr(high,low,close,li) || price*0.02;
-    const bull = s20 > s50, type = bull ? 'buy' : 'sell';
-    const bt = _backtestSMA(close);
-    const sep = Math.min(60, Math.abs(s20-s50)/s50*100*8);
-    const str = Math.max(50, Math.min(98, Math.round(sep + (bull ? (rsi-50) : (50-rsi)) + 40)));
-    const conf = Math.max(40, Math.min(95, bt.win || 50));
+    const ind = _buildIndicators(close, high, low, vol);
+    if (ind.ema20[li] == null || ind.ema50[li] == null) return;
+    const score = _score(ind, close, vol, li);          // composite, ~ -7..7
+    const rsiNow = ind.rsi[li] != null ? ind.rsi[li] : 50;
+    const atr = _atr(high, low, close, li) || price * 0.02;
+    // direction: strong signals only ≥3; weak = NEUTRAL
+    const type = score >= 3 ? 'buy' : score <= -3 ? 'sell' : 'hold';
+    const bull = score >= 0;
+    const bt = _backtestComposite(close, ind, vol);      // backtest THIS composite strategy
+    const str = Math.max(52, Math.min(98, Math.round(58 + Math.abs(score) * 5 + (bull ? (rsiNow-50) : (50-rsiNow)) / 4)));
+    const conf = Math.max(45, Math.min(95, bt.win || 55));
     const avgVol = _sma(vol,20,li) || 0;
-    const volLbl = vol[li] > avgVol*1.3 ? 'VERY HIGH' : vol[li] > avgVol ? 'HIGH' : 'MEDIUM';
+    const volLbl = vol[li] > avgVol*1.4 ? 'VERY HIGH' : vol[li] > avgVol ? 'HIGH' : 'MEDIUM';
+    // ATR-based targets/stop in trade direction
+    const dir = type === 'sell' ? -1 : 1;
     out.push({ sym: disp, comp: h.name, type, price:+price.toFixed(2),
-      t1:+(bull?price+atr:price-atr).toFixed(2), t2:+(bull?price+2*atr:price-2*atr).toFixed(2), t3:+(bull?price+3*atr:price-3*atr).toFixed(2),
-      sl:+(bull?price-1.5*atr:price+1.5*atr).toFixed(2), str, conf, vol: volLbl,
-      strat: `SMA20/50 · RSI ${Math.round(rsi)} · backtest ${bt.win}% win (${bt.avg>=0?'+':''}${bt.avg}%/trade, ${bt.n} trades)`,
-      time: new Date().toLocaleTimeString(us?'en-US':'en-IN',{hour:'2-digit',minute:'2-digit'}), cat:'swing' });
+      t1:+(price+dir*1.5*atr).toFixed(2), t2:+(price+dir*2.5*atr).toFixed(2), t3:+(price+dir*4*atr).toFixed(2),
+      sl:+(price-dir*1.5*atr).toFixed(2), str, conf, vol: volLbl,
+      strat: `EMA·MACD·RSI·Breakout (score ${score>0?'+':''}${score}) · backtest ${bt.win}% win (${bt.avg>=0?'+':''}${bt.avg}%/trade, ${bt.n})`,
+      time: new Date().toLocaleTimeString(us?'en-US':'en-IN',{hour:'2-digit',minute:'2-digit'}), cat:'swing',
+      _score: score, _btwin: bt.win });
   }));
   _sigBusy = false;
   if (!out.length) { if (!grid.querySelector('.signal-card')) grid.innerHTML = '<div class="empty-state">Live data source busy — tap 🔄 Refresh to retry.</div>'; return; }
   _sigAt = Date.now();
-  out.sort((a,b) => b.conf - a.conf || b.str - a.str);
+  out.sort((a,b) => (Math.abs(b._score)-Math.abs(a._score)) || (b._btwin-a._btwin) || (b.str-a.str));
   grid.innerHTML = out.map(buildSignalCard).join('');
   const ug = document.getElementById('ultimateGrid'); if (ug) ug.innerHTML = out.slice(0,3).map(buildSignalCard).join('');
   const mg = document.getElementById('multitfGrid'); if (mg) mg.innerHTML = out.slice(0,4).map(buildSignalCard).join('');
