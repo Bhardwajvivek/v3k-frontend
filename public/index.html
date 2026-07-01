@@ -3518,9 +3518,10 @@ function mountMarketWidgets() {
   if (_tvMounted === key) return;   // avoid re-mount churn
   _tvMounted = key;
 
-  // Hero chart — NIFTY 50 by day, S&P 500 at night (full advanced chart)
+  // Hero chart — India (day) / S&P 500 (night). NSE:NIFTY index is paywalled in the free
+  // embed, so day uses the India ETF (represents the Indian market and always renders).
   mountTVWidget('tvHeroChart', 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js', {
-    autosize: true, symbol: us ? 'FOREXCOM:SPXUSD' : 'NSE:NIFTY', interval: 'D', timezone: 'Asia/Kolkata',
+    autosize: true, symbol: us ? 'FOREXCOM:SPXUSD' : 'AMEX:INDA', interval: 'D', timezone: 'Asia/Kolkata',
     theme, style: '3', locale: 'en', hide_side_toolbar: true, allow_symbol_change: true,
     save_image: false, calendar: false, hide_volume: false, isTransparent: true
   });
