@@ -607,6 +607,17 @@
   #hnCanvas { position: absolute; inset: 0; width: 100%; height: 100%; }
   .mkt-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   @media (max-width: 900px) { .mkt-2col { grid-template-columns: 1fr; } }
+  /* BROKER PICKER */
+  .brk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; }
+  .brk-card { position: relative; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 16px 10px; text-align: center; cursor: pointer; transition: all .18s; }
+  .brk-card:hover { transform: translateY(-3px); border-color: var(--accent-cyan); box-shadow: 0 8px 20px rgba(0,0,0,.18); }
+  .brk-logo { width: 42px; height: 42px; border-radius: 11px; margin: 0 auto 8px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 18px; color: #fff; }
+  .brk-name { font-size: 12.5px; font-weight: 700; }
+  .brk-star { position: absolute; top: 7px; right: 9px; color: var(--accent-yellow); font-size: 13px; }
+  .brk-chk { position: absolute; top: 8px; left: 8px; width: 15px; height: 15px; accent-color: var(--accent-cyan); }
+  .brk-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 16px; font-size: 12px; color: var(--text-secondary); }
+  .brk-foot a { color: var(--accent-cyan); cursor: pointer; font-weight: 600; }
+  .brk-note { font-size: 11px; color: var(--text-secondary); margin-top: 12px; line-height: 1.5; padding-top: 10px; border-top: 1px solid var(--border); }
   .see-all { float: right; font-size: 12px; font-weight: 700; color: var(--accent-cyan); cursor: pointer; }
   .see-all:hover { text-decoration: underline; }
   .tv-box .tradingview-widget-container, .tv-box .tradingview-widget-container__widget { height: 100%; width: 100%; }
@@ -1327,6 +1338,17 @@
       <button class="chart-modal-close" onclick="closeMarkets()">✕</button>
     </div>
     <div class="chart-modal-body" id="marketsModalBody" style="overflow:hidden;"></div>
+  </div>
+</div>
+
+<!-- BROKER PICKER MODAL -->
+<div class="chart-modal-overlay" id="brokerModal">
+  <div class="chart-modal" style="max-width:560px;height:auto;max-height:88vh;">
+    <div class="chart-modal-header">
+      <div class="chart-modal-title" id="brokerModalTitle">Choose broker</div>
+      <button class="chart-modal-close" onclick="closeBrokerModal()">✕</button>
+    </div>
+    <div class="chart-modal-body" id="brokerModalBody" style="overflow-y:auto;padding:18px;"></div>
   </div>
 </div>
 
@@ -3193,6 +3215,7 @@ document.addEventListener('click', (e) => {
 document.addEventListener('click', (e) => {
   if (e.target && e.target.id === 'chartModal') closeChart();
   if (e.target && e.target.id === 'marketsModal') closeMarkets();
+  if (e.target && e.target.id === 'brokerModal') closeBrokerModal();
 });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeChart(); });
 
@@ -3428,17 +3451,73 @@ function doStockSearch() {
 // ─── BROKER ORDER REDIRECT (user logs in & confirms — we never place trades) ──
 const KITE_API_KEY = '58rfw7ndiljinul2';   // Zerodha Kite app "V3kTradingBot" (publishable api_key)
 
+// Broker directory. `act` = in-app deep-link handler; `url` = open broker (symbol copied to clipboard).
+const BROKERS = {
+  india: [
+    { k:'zerodha',  n:'Zerodha',        c:'#387ed1', act:(s,side)=>openZerodhaOrder(s,side,1) },
+    { k:'upstox',   n:'Upstox',         c:'#eb5b25', url:()=>'https://pro.upstox.com/' },
+    { k:'groww',    n:'Groww',          c:'#00b386', url:()=>'https://groww.in/stocks' },
+    { k:'angelone', n:'Angel One',      c:'#7a2cf5', url:()=>'https://trade.angelone.in/' },
+    { k:'dhan',     n:'Dhan',           c:'#f4a300', url:()=>'https://web.dhan.co/' },
+    { k:'icici',    n:'ICICI Direct',   c:'#b02a30', url:()=>'https://www.icicidirect.com/' },
+    { k:'fyers',    n:'Fyers',          c:'#2962ff', url:()=>'https://trade.fyers.in/' },
+    { k:'5paisa',   n:'5paisa',         c:'#e50914', url:()=>'https://www.5paisa.com/' },
+    { k:'hdfcsky',  n:'HDFC Sky',       c:'#004b8d', url:()=>'https://www.hdfcsky.com/' },
+    { k:'kotak',    n:'Kotak Neo',      c:'#e2231a', url:()=>'https://neo.kotaksecurities.com/' },
+  ],
+  us: [
+    { k:'vested',   n:'Vested',         c:'#6c5ce7', url:(s)=>'https://app.vestedfinance.com/instrument/'+s },
+    { k:'indmoney', n:'INDmoney',       c:'#0052cc', url:()=>'https://www.indmoney.com/us-stocks' },
+    { k:'groww_us', n:'Groww (US)',     c:'#00b386', url:()=>'https://groww.in/us-stocks' },
+    { k:'ibkr',     n:'Interactive Brokers', c:'#d81222', url:()=>'https://www.interactivebrokers.com/' },
+    { k:'webull',   n:'Webull',         c:'#1c6cff', url:()=>'https://www.webull.com/' },
+  ]
+};
+let _tradeCtx = { sym:'', side:'BUY', market:'india' };
 function tradeSignal(sym, type, market) {
-  const side   = (String(type).toUpperCase() === 'SELL') ? 'SELL' : 'BUY';
-  const isUsMkt = market ? (market === 'us') : isUS();
-  if (isUsMkt) {
-    // Vested per-stock page (has the Invest/Buy button); lands here if already logged in
-    const tkr = String(sym).toUpperCase().split(/\s+/)[0].replace(/[^A-Z.]/g,'');
-    window.open('https://app.vestedfinance.com/instrument/' + tkr, '_blank', 'noopener');
-    showToast('Opening ' + tkr + ' on Vested — tap Invest/Buy to place your ' + side + ' order.', 'info');
-    return;
-  }
-  openZerodhaOrder(sym, side, 1);
+  const side = (String(type).toUpperCase() === 'SELL') ? 'SELL' : 'BUY';
+  const mkt  = (market ? (market === 'us') : isUS()) ? 'us' : 'india';
+  _tradeCtx = { sym: String(sym).toUpperCase(), side, market: mkt };
+  openBrokerPicker();
+}
+function getMyBrokers(){ try { return new Set(JSON.parse(localStorage.getItem('v3k_brokers')||'[]')); } catch(e){ return new Set(); } }
+function saveMyBrokers(set){ localStorage.setItem('v3k_brokers', JSON.stringify([...set])); }
+let _brokerManage = false;
+function openBrokerPicker(){
+  const { sym, side, market } = _tradeCtx;
+  const list = BROKERS[market] || BROKERS.india;
+  const mine = getMyBrokers();
+  const ordered = [...list].sort((a,b)=> (mine.has(b.k)?1:0) - (mine.has(a.k)?1:0));
+  document.getElementById('brokerModalTitle').innerHTML =
+    (side==='SELL'?'🔴 SELL ':'🟢 BUY ') + sym + ' <span style="font-size:12px;color:var(--text-secondary);font-weight:400">· choose your broker</span>';
+  const body = document.getElementById('brokerModalBody');
+  body.innerHTML = `
+    <div class="brk-grid">
+      ${ordered.map(b => `
+        <div class="brk-card" onclick="chooseBroker('${b.k}')">
+          ${_brokerManage ? `<input type="checkbox" class="brk-chk" ${mine.has(b.k)?'checked':''} onclick="event.stopPropagation();toggleMyBroker('${b.k}',this.checked)">` : (mine.has(b.k)?'<span class="brk-star">★</span>':'')}
+          <div class="brk-logo" style="background:${b.c}">${b.n[0]}</div>
+          <div class="brk-name">${b.n}</div>
+        </div>`).join('')}
+    </div>
+    <div class="brk-foot">
+      <span>${_brokerManage ? 'Tick the brokers you have — they appear first next time.' : 'Tap a broker to place your order there.'}</span>
+      <a onclick="_brokerManage=!_brokerManage;openBrokerPicker()">${_brokerManage?'Done':'⚙ Manage my brokers'}</a>
+    </div>
+    <div class="brk-note">🔒 We only redirect you — the order is placed &amp; confirmed on the broker&apos;s own secure app. Symbol is copied for easy pasting where a broker has no direct link.</div>`;
+  document.getElementById('brokerModal').classList.add('show');
+}
+function toggleMyBroker(k, on){ const s=getMyBrokers(); on?s.add(k):s.delete(k); saveMyBrokers(s); }
+function closeBrokerModal(){ document.getElementById('brokerModal').classList.remove('show'); }
+function chooseBroker(k){
+  const { sym, side, market } = _tradeCtx;
+  const b = (BROKERS[market]||[]).find(x=>x.k===k); if(!b) return;
+  closeBrokerModal();
+  if (b.act) { b.act(sym, side); return; }
+  const tkr = sym.split(/\s+/)[0].replace(/[^A-Z0-9.]/g,'');
+  try { navigator.clipboard && navigator.clipboard.writeText(tkr); } catch(e){}
+  window.open(b.url(tkr), '_blank', 'noopener');
+  showToast('Opening ' + b.n + ' — ' + tkr + ' copied. Search &amp; ' + side + ' there.', 'info');
 }
 
 function openZerodhaOrder(sym, side, qty) {
