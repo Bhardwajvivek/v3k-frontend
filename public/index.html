@@ -595,6 +595,16 @@
 
   .ov-section-title { font-size: 14px; font-weight: 800; margin-bottom: 12px; }
   .tv-box { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; box-shadow: var(--card-shadow); min-height: 300px; }
+  /* NATIVE HERO CHART */
+  .hn-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+  .hn-name { font-size: 15px; font-weight: 800; margin-right: 10px; }
+  .hn-price { font-size: 22px; font-weight: 900; font-variant-numeric: tabular-nums; }
+  .hn-chg { font-size: 13px; font-weight: 700; margin-left: 8px; }
+  .hn-chg.up { color: var(--accent-green); } .hn-chg.down { color: var(--accent-red); }
+  .hn-ranges { display: flex; gap: 6px; flex-wrap: wrap; }
+  .hn-range { font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 7px; border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-secondary); cursor: pointer; }
+  .hn-range.active { background: var(--accent-cyan); color: #001226; border-color: var(--accent-cyan); }
+  #hnCanvas { position: absolute; inset: 0; width: 100%; height: 100%; }
   .mkt-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   @media (max-width: 900px) { .mkt-2col { grid-template-columns: 1fr; } }
   .see-all { float: right; font-size: 12px; font-weight: 700; color: var(--accent-cyan); cursor: pointer; }
@@ -981,9 +991,19 @@
       </div>
     </div>
 
-    <!-- Market Summary — hero chart (NIFTY by day / S&P 500 at night) -->
+    <!-- Market Summary — native live chart (real NIFTY by day / S&P 500 at night) -->
     <div class="ov-section-title">📊 Market Summary</div>
-    <div class="tv-box" id="tvHeroChart" style="height:420px;"></div>
+    <div class="tv-box" id="heroNative" style="height:440px;padding:16px 18px;display:flex;flex-direction:column;">
+      <div class="hn-head">
+        <div>
+          <span class="hn-name" id="hnName">NIFTY 50</span>
+          <span class="hn-price" id="hnPrice">—</span>
+          <span class="hn-chg" id="hnChg"></span>
+        </div>
+        <div class="hn-ranges" id="hnRanges"></div>
+      </div>
+      <div style="flex:1;position:relative;min-height:0;"><canvas id="hnCanvas"></canvas></div>
+    </div>
 
     <!-- Grouped markets + economic indicators -->
     <div class="mkt-2col">
@@ -3494,7 +3514,90 @@ function renderHome() {
   }
   loadRealIndices(true);   // always show live index values on Home
   buildHomeSlides();
+  renderHeroChart();       // native live NIFTY/S&P chart (no TradingView paywall)
   mountMarketWidgets();
+}
+
+// ── Native hero chart: real NIFTY 50 (day) / S&P 500 (night) from Yahoo, drawn on canvas ──
+const HERO_RANGES = [['1D','1d','5m'],['1W','5d','30m'],['1M','1mo','1d'],['6M','6mo','1d'],['1Y','1y','1d']];
+let heroRange = '6M', _heroTimer = null;
+async function fetchHeroSeries(ysym, range, interval) {
+  const u = 'https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(ysym) + '?interval=' + interval + '&range=' + range;
+  const enc = encodeURIComponent(u);
+  const proxies = ['https://corsproxy.io/?url='+enc, 'https://api.allorigins.win/raw?url='+enc, 'https://api.allorigins.win/get?url='+enc, 'https://thingproxy.freeboard.io/fetch/'+u];
+  for (let i=0;i<proxies.length;i++){
+    try {
+      const r = await fetch(proxies[i], { signal: AbortSignal.timeout(11000) }); if (!r.ok) continue;
+      let j = await r.json(); if (i===2 && j.contents) j = JSON.parse(j.contents);
+      const res = j && j.chart && j.chart.result && j.chart.result[0]; if (!res) continue;
+      const c = res.indicators.quote[0].close, t = res.timestamp || [];
+      const closes=[], times=[];
+      for (let k=0;k<c.length;k++){ if (c[k]!=null){ closes.push(c[k]); times.push(t[k]); } }
+      if (closes.length < 2) continue;
+      return { closes, times, price: res.meta.regularMarketPrice || closes[closes.length-1] };
+    } catch(e){}
+  }
+  return null;
+}
+function setHeroRange(r){ heroRange = r; renderHeroChart(true); }
+async function renderHeroChart(force){
+  const cv = document.getElementById('hnCanvas'); if (!cv) return;
+  const us = isUS();
+  const ysym = us ? '^GSPC' : '^NSEI';
+  const name = us ? 'S&P 500' : 'NIFTY 50';
+  document.getElementById('hnName').textContent = name;
+  // range buttons
+  const rb = document.getElementById('hnRanges');
+  if (rb) rb.innerHTML = HERO_RANGES.map(([lbl])=>`<span class="hn-range ${lbl===heroRange?'active':''}" onclick="setHeroRange('${lbl}')">${lbl}</span>`).join('');
+  const cfg = HERO_RANGES.find(x=>x[0]===heroRange) || HERO_RANGES[3];
+  const data = await fetchHeroSeries(ysym, cfg[1], cfg[2]);
+  if (!data) { return; }
+  const { closes, price } = data;
+  const first = closes[0], chg = price - first, chgPct = first ? chg/first*100 : 0, up = chg >= 0;
+  const loc = us ? 'en-US' : 'en-IN';
+  document.getElementById('hnPrice').textContent = price.toLocaleString(loc, {maximumFractionDigits:2});
+  const chgEl = document.getElementById('hnChg');
+  chgEl.textContent = (up?'▲ +':'▼ ') + chg.toLocaleString(loc,{maximumFractionDigits:2}) + ' (' + (up?'+':'') + chgPct.toFixed(2) + '%)';
+  chgEl.className = 'hn-chg ' + (up?'up':'down');
+  drawHeroArea(cv, closes, up);
+  if (!force) { if (_heroTimer) clearTimeout(_heroTimer); _heroTimer = setTimeout(()=>renderHeroChart(), 60000); }
+}
+function drawHeroArea(cv, data, up){
+  const ctx = cv.getContext('2d');
+  const dpr = Math.min(window.devicePixelRatio||1, 2);
+  const W = cv.clientWidth, H = cv.clientHeight;
+  cv.width = W*dpr; cv.height = H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,W,H);
+  const padR = 58, padT = 8, padB = 18, padL = 4;
+  const cw = W - padR - padL, ch = H - padT - padB;
+  let mn = Math.min(...data), mx = Math.max(...data); const rng = (mx-mn)||1; mn -= rng*0.08; mx += rng*0.08;
+  const x = i => padL + (i/(data.length-1))*cw;
+  const y = v => padT + (1-(v-mn)/(mx-mn))*ch;
+  const css = getComputedStyle(document.body);
+  const grid = css.getPropertyValue('--border').trim() || '#2a3140';
+  const txt = css.getPropertyValue('--text-secondary').trim() || '#868fa0';
+  const col = up ? '#26a69a' : '#ef5350';
+  // gridlines + right price labels
+  ctx.font = '10px -apple-system, system-ui, sans-serif'; ctx.textBaseline='middle';
+  ctx.strokeStyle = grid; ctx.fillStyle = txt; ctx.lineWidth = 1;
+  for (let g=0; g<=4; g++){ const yy = padT + (g/4)*ch; const val = mx - (g/4)*(mx-mn);
+    ctx.globalAlpha=0.35; ctx.beginPath(); ctx.moveTo(padL,yy); ctx.lineTo(padL+cw,yy); ctx.stroke(); ctx.globalAlpha=1;
+    ctx.textAlign='left'; ctx.fillText(val.toLocaleString('en-US',{maximumFractionDigits:0}), padL+cw+6, yy); }
+  // area fill
+  const grad = ctx.createLinearGradient(0,padT,0,padT+ch);
+  grad.addColorStop(0, up?'rgba(38,166,154,0.28)':'rgba(239,83,80,0.28)');
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.beginPath(); ctx.moveTo(x(0), y(data[0]));
+  for (let i=1;i<data.length;i++) ctx.lineTo(x(i), y(data[i]));
+  ctx.lineTo(x(data.length-1), padT+ch); ctx.lineTo(x(0), padT+ch); ctx.closePath();
+  ctx.fillStyle = grad; ctx.fill();
+  // line
+  ctx.beginPath(); ctx.moveTo(x(0), y(data[0]));
+  for (let i=1;i<data.length;i++) ctx.lineTo(x(i), y(data[i]));
+  ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.stroke();
+  // last dot + label
+  const lx = x(data.length-1), ly = y(data[data.length-1]);
+  ctx.fillStyle = col; ctx.beginPath(); ctx.arc(lx, ly, 3.5, 0, Math.PI*2); ctx.fill();
 }
 
 // Embed TradingView's official widgets (real data, free) — themed to match the site
@@ -3518,14 +3621,6 @@ function mountMarketWidgets() {
   const key = theme + (us ? 'us' : 'in');
   if (_tvMounted === key) return;   // avoid re-mount churn
   _tvMounted = key;
-
-  // Hero chart — India (day) / S&P 500 (night). NSE:NIFTY index is paywalled in the free
-  // embed, so day uses the India ETF (represents the Indian market and always renders).
-  mountTVWidget('tvHeroChart', 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js', {
-    autosize: true, symbol: us ? 'FOREXCOM:SPXUSD' : 'AMEX:INDA', interval: 'D', timezone: 'Asia/Kolkata',
-    theme, style: '3', locale: 'en', hide_side_toolbar: true, allow_symbol_change: true,
-    save_image: false, calendar: false, hide_volume: false, isTransparent: true
-  });
 
   // Grouped markets (indices · futures · forex · crypto) — like TradingView Markets
   mountTVWidget('tvMarketQuotes', 'https://s3.tradingview.com/external-embedding/embed-widget-market-quotes.js', {
@@ -3908,7 +4003,7 @@ function applyMarketMode() {
   renderHomePortfolio();
   if (changed) loadRealNews(true);   // refresh news for the active market (India/US)
   if (changed && typeof buildStockTicker === 'function') buildStockTicker();
-  if (state.activeTab === 'home' && typeof mountMarketWidgets === 'function') mountMarketWidgets();
+  if (state.activeTab === 'home' && typeof mountMarketWidgets === 'function') { mountMarketWidgets(); if (changed) renderHeroChart(true); }
 
   // Pull live data for the active market
   if (state.backendConnected) {
