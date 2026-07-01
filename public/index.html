@@ -866,7 +866,7 @@
 <!-- BACKEND STATUS -->
 <div class="backend-status">
   <div class="backend-dot" id="backendDot"></div>
-  <span id="backendLabel">Backend: Checking…</span>
+  <span id="backendLabel">🟢 Live · direct feeds</span>
 </div>
 
 <!-- NOTIFICATION PANEL -->
@@ -2008,7 +2008,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (found) {
     loadAllLive();
   } else {
-    showToast('Demo mode — Render may be waking up (~30s). Will auto-retry.', 'warning');
+    showToast('🟢 Live data active (direct feeds). Full engine connects if backend is online.', 'info');
     // Auto-retry once after 35s (Render cold start)
     setTimeout(async () => {
       const retry = await checkBackend();
@@ -2613,13 +2613,14 @@ async function checkBackend() {
   const found = await findWorkingBackend();
   if (found) {
     dot.classList.add('connected');
-    label.textContent = 'Backend: ' + (found.includes('onrender') ? 'Render ✓' : 'Local ✓');
+    label.textContent = '🟢 Live · ' + (found.includes('onrender') ? 'Full engine' : 'Local');
     state.backendConnected = true;
-    showToast('Backend connected at ' + found + ' — loading live data…', 'success');
+    showToast('Backend connected — full engine online.', 'success');
     return true;
   } else {
-    dot.classList.remove('connected');
-    label.textContent = 'Backend: Offline (Demo)';
+    // No backend, but the app runs on live direct feeds (Yahoo · Binance · TradingView)
+    dot.classList.add('connected');
+    label.textContent = '🟢 Live · direct feeds';
     state.backendConnected = false;
     return false;
   }
