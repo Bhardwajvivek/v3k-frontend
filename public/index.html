@@ -4656,7 +4656,10 @@ async function generateLiveSignals(force) {
   if (_sigBusy) return;
   if (!force && _sigReal && Date.now() - _sigAt < 120000) return; // cache 2 min once we have real cards
   _sigBusy = true;
-  if (!_sigReal) grid.innerHTML = '<div class="empty-state"><span class="spin">⟳</span> Computing live signals from real market data…</div>'; // clear any demo
+  if (!_sigReal) {   // clear any demo cards from signals/ultimate/multi-TF until real ones load
+    const loading = '<div class="empty-state"><span class="spin">⟳</span> Computing live signals from real market data…</div>';
+    ['signalsGrid','ultimateGrid','multitfGrid'].forEach(id => { const e = document.getElementById(id); if (e && !e.querySelector('.empty-state')) e.innerHTML = loading; });
+  }
   const us = isUS();
   const SET = us
     ? [['AAPL','AAPL'],['MSFT','MSFT'],['NVDA','NVDA'],['TSLA','TSLA'],['AMZN','AMZN'],['META','META'],['GOOGL','GOOGL'],['AMD','AMD'],['NFLX','NFLX'],['JPM','JPM']]
