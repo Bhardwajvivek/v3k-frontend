@@ -2127,7 +2127,7 @@ async function fetchYahooSpark(symbols) {
   for (let i = 0; i < symbols.length; i += 25) chunks.push(symbols.slice(i, i + 25));
   await Promise.all(chunks.map(async chunk => {   // fetch chunks in parallel, each racing relays
     try {
-      const j = await proxiedJSON('https://query1.finance.yahoo.com/v7/finance/spark?symbols=' + chunk.join(',') + '&range=1d&interval=1d', 9000);
+      const j = await proxiedJSON('https://query1.finance.yahoo.com/v7/finance/spark?symbols=' + chunk.join(',') + '&range=1d&interval=1d', 9000, 20000);
       const res = j && j.spark && j.spark.result;
       if (res) res.forEach(x => { const m = x.response && x.response[0] && x.response[0].meta; if (m && m.regularMarketPrice != null) out[x.symbol] = m.regularMarketPrice; });
     } catch (e) {}
@@ -3624,7 +3624,7 @@ const HERO_RANGES = [['1D','1d','5m'],['1W','5d','30m'],['1M','1mo','1d'],['6M',
 let heroRange = '6M', _heroTimer = null;
 async function fetchHeroSeries(ysym, range, interval) {
   try {
-    const j = await proxiedJSON('https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(ysym) + '?interval=' + interval + '&range=' + range, 9000);
+    const j = await proxiedJSON('https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(ysym) + '?interval=' + interval + '&range=' + range, 9000, 45000);
     const res = j && j.chart && j.chart.result && j.chart.result[0];
     if (res) {
       const c = res.indicators.quote[0].close, t = res.timestamp || [];
@@ -4543,17 +4543,27 @@ function updateVestedTotals() {
   pctEl.textContent = (priced ? '' : '(awaiting live prices) ') + (pnlPct>=0?'+':'') + pnlPct.toFixed(2) + '%';
 }
 
-// ── Fetch a URL's JSON through several CORS relays IN PARALLEL — first to respond wins ──
-async function proxiedJSON(u, timeout) {
+// ── Fetch a URL's JSON through several CORS relays IN PARALLEL — first to respond wins.
+//    Adds an in-memory cache (by URL+TTL) and de-dupes concurrent identical requests. ──
+const _pjCache = new Map();     // url -> { t, data }
+const _pjInflight = new Map();  // url -> Promise
+async function proxiedJSON(u, timeout, ttl) {
+  ttl = ttl || 15000;
+  const now = Date.now();
+  const cached = _pjCache.get(u);
+  if (cached && now - cached.t < ttl) return cached.data;
+  if (_pjInflight.has(u)) return _pjInflight.get(u);   // reuse an in-flight identical request
   const enc = encodeURIComponent(u);
   const t = timeout || 8000;
-  const cands = [
+  const p = Promise.any([
     fetch('https://corsproxy.io/?url=' + enc,            { signal: AbortSignal.timeout(t) }).then(r => r.json()),
     fetch('https://api.allorigins.win/raw?url=' + enc,   { signal: AbortSignal.timeout(t) }).then(r => r.json()),
     fetch('https://api.allorigins.win/get?url=' + enc,   { signal: AbortSignal.timeout(t) }).then(r => r.json()).then(j => JSON.parse(j.contents)),
     fetch('https://thingproxy.freeboard.io/fetch/' + u,  { signal: AbortSignal.timeout(t) }).then(r => r.json()),
-  ];
-  return Promise.any(cands);   // resolves with the first successful relay
+  ]).then(data => { _pjCache.set(u, { t: Date.now(), data }); _pjInflight.delete(u); return data; })
+    .catch(e => { _pjInflight.delete(u); throw e; });
+  _pjInflight.set(u, p);
+  return p;
 }
 
 async function fetchYahooQuote(ySym) {
@@ -4581,13 +4591,18 @@ async function fetchLiveQuotes(items) {
 
 // ─── REAL SIGNAL ENGINE (live data + backtest, no backend) ───────────────────
 async function fetchYahooHistory(ySym) {
+  const skey = 'hist:' + ySym + ':' + new Date().toISOString().slice(0,10);   // per-day session cache
+  try { const s = sessionStorage.getItem(skey); if (s) return JSON.parse(s); } catch(e){}
   try {
-    const j = await proxiedJSON('https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(ySym) + '?interval=1d&range=1y', 10000);
+    const j = await proxiedJSON('https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(ySym) + '?interval=1d&range=1y', 10000, 300000); // cache 5 min
     const res = j && j.chart && j.chart.result && j.chart.result[0];
     if (res) {
       const q = res.indicators.quote[0], m = res.meta;
-      if (q && q.close && q.close.filter(x => x != null).length >= 60)
-        return { close: q.close, high: q.high, low: q.low, vol: q.volume, name: m.longName || m.shortName || ySym, price: m.regularMarketPrice };
+      if (q && q.close && q.close.filter(x => x != null).length >= 60) {
+        const out = { close: q.close, high: q.high, low: q.low, vol: q.volume, name: m.longName || m.shortName || ySym, price: m.regularMarketPrice };
+        try { sessionStorage.setItem(skey, JSON.stringify(out)); } catch(e){}
+        return out;
+      }
     }
   } catch (e) {}
   return null;
