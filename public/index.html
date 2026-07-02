@@ -1203,20 +1203,13 @@
   </div>
 
   <div class="tab-panel" id="tab-risk">
-    <div class="section-title">🛡️ Risk Management Dashboard</div>
-    <div class="risk-grid">
-      <div class="risk-metric"><div class="risk-metric-name">Portfolio Beta</div><div class="risk-metric-val warn">1.12</div><div class="risk-metric-sub">Slightly aggressive</div></div>
-      <div class="risk-metric"><div class="risk-metric-name">Sharpe Ratio</div><div class="risk-metric-val good">2.34</div><div class="risk-metric-sub">Excellent</div></div>
-      <div class="risk-metric"><div class="risk-metric-name">Max Drawdown</div><div class="risk-metric-val warn">-4.2%</div><div class="risk-metric-sub">This month</div></div>
-      <div class="risk-metric"><div class="risk-metric-name">VaR (95%)</div><div class="risk-metric-val warn">₹8,400</div><div class="risk-metric-sub">Daily risk limit</div></div>
-      <div class="risk-metric"><div class="risk-metric-name">Capital at Risk</div><div class="risk-metric-val good">8.4%</div><div class="risk-metric-sub">Within 10% limit</div></div>
-      <div class="risk-metric"><div class="risk-metric-name">Avg Trade Risk</div><div class="risk-metric-val good">1.2%</div><div class="risk-metric-sub">Per position</div></div>
+    <div class="section-title">🛡️ Risk Management <span style="font-size:12px;font-weight:400;color:var(--text-secondary)">· computed from your holdings</span></div>
+    <div class="risk-grid" id="riskGrid">
+      <div class="risk-metric"><div class="risk-metric-name">Add holdings</div><div class="risk-metric-val">—</div><div class="risk-metric-sub">Risk metrics appear once you add positions</div></div>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;">
-      <button class="btn success" onclick="showRiskModal()">⚠️ Set Risk Level</button>
-      <button class="btn" onclick="showToast('Portfolio risk analysis complete. All positions within safe limits.','info')">📊 Run Risk Analysis</button>
-      <button class="btn" onclick="showToast('Risk alerts configured successfully!','success')">🔔 Configure Risk Alerts</button>
-      <button class="btn danger" onclick="showRiskModal()">🚨 Emergency Stop</button>
+      <button class="btn success" onclick="switchTab('portfolio')">➕ Manage Holdings</button>
+      <button class="btn" onclick="loadLiveRisk()">🔄 Recompute Risk</button>
     </div>
   </div>
 
@@ -2317,8 +2310,8 @@ function switchTab(name) {
     if (name === 'aipred')     loadLivePredictions();
     if (name === 'news')       loadLiveNews();
     if (name === 'aiscanner')  { /* triggered by runAiScan button */ }
-    if (name === 'risk')       loadLiveRisk();
   }
+  if (name === 'risk')      loadLiveRisk();   // real, computed from holdings (no backend needed)
   if (name === 'crypto')    loadLiveCrypto();
   if (name === 'news')      loadRealNews(true);   // real news needs no backend
   if (name === 'watchlist') { renderWlTabs(); renderWlStocks(); fetchWatchlistPrices(); }
@@ -3076,13 +3069,51 @@ async function loadLiveCrypto() {
   connectCryptoWebSocket();
 }
 
+// Real risk metrics computed from the user's actual holdings (live history)
 async function loadLiveRisk() {
-  const alerts = await apiGet('/risk-alerts', null);
-  if (!alerts) return;
-  const riskAlerts = alerts.alerts || alerts.risk_alerts || [];
-  riskAlerts.filter(a => (a.severity||'').toLowerCase() === 'high').forEach(a => {
-    showToast('⚠️ Risk Alert: ' + (a.message || a.description || ''), 'warning');
+  const grid = document.getElementById('riskGrid'); if (!grid) return;
+  if (!vested.length) {
+    grid.innerHTML = '<div class="risk-metric"><div class="risk-metric-name">No holdings</div><div class="risk-metric-val">—</div><div class="risk-metric-sub">Add positions in Portfolio to see risk</div></div>';
+    return;
+  }
+  grid.innerHTML = '<div class="risk-metric" style="grid-column:1/-1"><div class="risk-metric-val"><span class="spin">⟳</span></div><div class="risk-metric-sub">Computing risk from live history…</div></div>';
+  const pf = computePortfolio();
+  // per-holding daily returns from 1y history → volatility, drawdown, weights
+  const hist = await Promise.all(vested.map(v => fetchYahooHistory(v.sym)));
+  let annVolWeighted = 0, worstDD = 0, weightSum = 0;
+  const weights = [];
+  vested.forEach((v, i) => {
+    const p = vestedPrices[v.sym]; const price = p ? parseFloat(p.price) : v.avg;
+    const w = price * v.qty; weightSum += w;
+    const h = hist[i];
+    if (h) {
+      const c = h.close.filter(x => x != null);
+      const rets = []; for (let k=1;k<c.length;k++) rets.push(c[k]/c[k-1]-1);
+      const mean = rets.reduce((a,b)=>a+b,0)/rets.length;
+      const sd = Math.sqrt(rets.reduce((a,b)=>a+(b-mean)**2,0)/rets.length);
+      const annVol = sd * Math.sqrt(252) * 100;
+      annVolWeighted += annVol * w;
+      // max drawdown of this holding (1y)
+      let peak=c[0], dd=0; c.forEach(x=>{ peak=Math.max(peak,x); dd=Math.min(dd,(x-peak)/peak); });
+      worstDD = Math.min(worstDD, dd*100);
+    }
+    weights.push({ sym:v.sym, w });
   });
+  const portVol = weightSum ? (annVolWeighted/weightSum) : 0;
+  weights.sort((a,b)=>b.w-a.w);
+  const topW = weightSum ? (weights[0].w/weightSum*100) : 0;
+  const dailyVaR = pf.value * (portVol/100) / Math.sqrt(252) * 1.65;   // 95% 1-day VaR (parametric)
+  const cls = (v,good,warn) => v<=good?'good':v<=warn?'warn':'bad';
+  const M = (name,val,sub,c) => `<div class="risk-metric"><div class="risk-metric-name">${name}</div><div class="risk-metric-val ${c||''}">${val}</div><div class="risk-metric-sub">${sub}</div></div>`;
+  const cur = isUS()? '$':'$';
+  grid.innerHTML = [
+    M('Portfolio Value', '$'+pf.value.toLocaleString('en-US',{maximumFractionDigits:0}), pf.count+' positions'),
+    M('Annualised Volatility', portVol.toFixed(1)+'%', 'weighted, from 1y history', cls(portVol,20,35)),
+    M('Worst Holding Drawdown', worstDD.toFixed(1)+'%', 'largest 1y peak-to-trough', cls(-worstDD,15,30)),
+    M('1-Day VaR (95%)', '$'+dailyVaR.toLocaleString('en-US',{maximumFractionDigits:0}), 'est. worst daily loss'),
+    M('Largest Position', topW.toFixed(1)+'%', weights[0].sym+' — concentration', cls(topW,25,40)),
+    M('Diversification', pf.count+' stocks', pf.count>=8?'well spread':pf.count>=4?'moderate':'concentrated', cls(40-pf.count*4,20,30)),
+  ].join('');
 }
 
 async function loadLiveTicker() {
@@ -3680,15 +3711,24 @@ function mountTVWidget(containerId, scriptSrc, config) {
   wrap.appendChild(sc);
   host.appendChild(wrap);
 }
+// Mount a TradingView widget only when its container scrolls near the viewport (perf)
+let _tvObservers = [];
+function lazyMountTV(id, mountFn) {
+  const el = document.getElementById(id); if (!el) return;
+  if (el.getBoundingClientRect().top < window.innerHeight + 500) { mountFn(); return; }
+  const obs = new IntersectionObserver((ents) => { if (ents[0].isIntersecting) { mountFn(); obs.disconnect(); } }, { rootMargin: '500px' });
+  obs.observe(el); _tvObservers.push(obs);
+}
 function mountMarketWidgets() {
   const theme = document.body.classList.contains('light') ? 'light' : 'dark';
   const us = isUS();
   const key = theme + (us ? 'us' : 'in');
   if (_tvMounted === key) return;   // avoid re-mount churn
   _tvMounted = key;
+  _tvObservers.forEach(o => o.disconnect()); _tvObservers = [];
 
   // Grouped markets (indices · futures · forex · crypto) — like TradingView Markets
-  mountTVWidget('tvMarketQuotes', 'https://s3.tradingview.com/external-embedding/embed-widget-market-quotes.js', {
+  lazyMountTV('tvMarketQuotes', () => mountTVWidget('tvMarketQuotes', 'https://s3.tradingview.com/external-embedding/embed-widget-market-quotes.js', {
     width: '100%', height: 540, colorTheme: theme, isTransparent: true, locale: 'en',
     symbolsGroups: [
       { name: 'Indices', symbols: [
@@ -3706,36 +3746,36 @@ function mountMarketWidgets() {
         {name:'BINANCE:BTCUSDT', displayName:'Bitcoin'}, {name:'BINANCE:ETHUSDT', displayName:'Ethereum'},
         {name:'BINANCE:SOLUSDT', displayName:'Solana'}, {name:'BINANCE:BNBUSDT', displayName:'BNB'} ] }
     ]
-  });
+  }));
 
   // Economic calendar (indicators / events)
-  mountTVWidget('tvEconomy', 'https://s3.tradingview.com/external-embedding/embed-widget-events.js', {
+  lazyMountTV('tvEconomy', () => mountTVWidget('tvEconomy', 'https://s3.tradingview.com/external-embedding/embed-widget-events.js', {
     width: '100%', height: 540, colorTheme: theme, isTransparent: true, locale: 'en',
     importanceFilter: '0,1', countryFilter: us ? 'us,eu,gb,jp' : 'in,us'
-  });
+  }));
 
   // Crypto market screener
-  mountTVWidget('tvCrypto', 'https://s3.tradingview.com/external-embedding/embed-widget-screener.js', {
+  lazyMountTV('tvCrypto', () => mountTVWidget('tvCrypto', 'https://s3.tradingview.com/external-embedding/embed-widget-screener.js', {
     width: '100%', height: 420, defaultColumn: 'overview', defaultScreen: 'general',
     market: 'crypto', showToolbar: true, colorTheme: theme, locale: 'en', isTransparent: true
-  });
+  }));
 
   // Futures / commodities quotes
-  mountTVWidget('tvFutures', 'https://s3.tradingview.com/external-embedding/embed-widget-market-quotes.js', {
+  lazyMountTV('tvFutures', () => mountTVWidget('tvFutures', 'https://s3.tradingview.com/external-embedding/embed-widget-market-quotes.js', {
     width: '100%', height: 420, colorTheme: theme, isTransparent: true, locale: 'en',
     symbolsGroups: [ { name: 'Commodities', symbols: [
       {name:'TVC:USOIL', displayName:'Crude Oil'}, {name:'TVC:UKOIL', displayName:'Brent'},
       {name:'OANDA:XAUUSD', displayName:'Gold'}, {name:'OANDA:XAGUSD', displayName:'Silver'},
       {name:'NYMEX:NG1!', displayName:'Natural Gas'}, {name:'CME:HG1!', displayName:'Copper'},
       {name:'CBOT:ZW1!', displayName:'Wheat'}, {name:'CBOT:ZC1!', displayName:'Corn'} ] } ]
-  });
+  }));
 
   // Stocks screener
-  mountTVWidget('tvScreener', 'https://s3.tradingview.com/external-embedding/embed-widget-screener.js', {
+  lazyMountTV('tvScreener', () => mountTVWidget('tvScreener', 'https://s3.tradingview.com/external-embedding/embed-widget-screener.js', {
     width: '100%', height: 600, defaultColumn: 'overview', defaultScreen: 'general',
     market: us ? 'america' : 'india', showToolbar: true,
     colorTheme: theme, locale: 'en', isTransparent: true
-  });
+  }));
 }
 
 // "See all" → open a full-screen widget for the chosen market
