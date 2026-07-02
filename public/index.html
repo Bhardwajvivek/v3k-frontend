@@ -2130,20 +2130,15 @@ const US_TICKER_LIST = ['AAPL','MSFT','NVDA','AMZN','GOOGL','META','TSLA','AVGO'
 // Fetch many symbols' live prices in one shot (Yahoo spark endpoint), via CORS proxy
 async function fetchYahooSpark(symbols) {
   const out = {};
-  for (let i = 0; i < symbols.length; i += 25) {
-    const chunk = symbols.slice(i, i + 25);
-    const u = 'https://query1.finance.yahoo.com/v7/finance/spark?symbols=' + chunk.join(',') + '&range=1d&interval=1d';
-    const enc = encodeURIComponent(u);
-    const attempts = ['https://corsproxy.io/?url=' + enc, 'https://api.allorigins.win/raw?url=' + enc, 'https://thingproxy.freeboard.io/fetch/' + u];
-    for (const p of attempts) {
-      try {
-        const r = await fetch(p, { signal: AbortSignal.timeout(11000) }); if (!r.ok) continue;
-        const j = await r.json();
-        const res = j && j.spark && j.spark.result;
-        if (res) { res.forEach(x => { const m = x.response && x.response[0] && x.response[0].meta; if (m && m.regularMarketPrice != null) out[x.symbol] = m.regularMarketPrice; }); break; }
-      } catch (e) {}
-    }
-  }
+  const chunks = [];
+  for (let i = 0; i < symbols.length; i += 25) chunks.push(symbols.slice(i, i + 25));
+  await Promise.all(chunks.map(async chunk => {   // fetch chunks in parallel, each racing relays
+    try {
+      const j = await proxiedJSON('https://query1.finance.yahoo.com/v7/finance/spark?symbols=' + chunk.join(',') + '&range=1d&interval=1d', 9000);
+      const res = j && j.spark && j.spark.result;
+      if (res) res.forEach(x => { const m = x.response && x.response[0] && x.response[0].meta; if (m && m.regularMarketPrice != null) out[x.symbol] = m.regularMarketPrice; });
+    } catch (e) {}
+  }));
   return out;
 }
 
@@ -3597,21 +3592,16 @@ function renderHome() {
 const HERO_RANGES = [['1D','1d','5m'],['1W','5d','30m'],['1M','1mo','1d'],['6M','6mo','1d'],['1Y','1y','1d']];
 let heroRange = '6M', _heroTimer = null;
 async function fetchHeroSeries(ysym, range, interval) {
-  const u = 'https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(ysym) + '?interval=' + interval + '&range=' + range;
-  const enc = encodeURIComponent(u);
-  const proxies = ['https://corsproxy.io/?url='+enc, 'https://api.allorigins.win/raw?url='+enc, 'https://api.allorigins.win/get?url='+enc, 'https://thingproxy.freeboard.io/fetch/'+u];
-  for (let i=0;i<proxies.length;i++){
-    try {
-      const r = await fetch(proxies[i], { signal: AbortSignal.timeout(11000) }); if (!r.ok) continue;
-      let j = await r.json(); if (i===2 && j.contents) j = JSON.parse(j.contents);
-      const res = j && j.chart && j.chart.result && j.chart.result[0]; if (!res) continue;
+  try {
+    const j = await proxiedJSON('https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(ysym) + '?interval=' + interval + '&range=' + range, 9000);
+    const res = j && j.chart && j.chart.result && j.chart.result[0];
+    if (res) {
       const c = res.indicators.quote[0].close, t = res.timestamp || [];
       const closes=[], times=[];
       for (let k=0;k<c.length;k++){ if (c[k]!=null){ closes.push(c[k]); times.push(t[k]); } }
-      if (closes.length < 2) continue;
-      return { closes, times, price: res.meta.regularMarketPrice || closes[closes.length-1] };
-    } catch(e){}
-  }
+      if (closes.length >= 2) return { closes, times, price: res.meta.regularMarketPrice || closes[closes.length-1] };
+    }
+  } catch(e){}
   return null;
 }
 function setHeroRange(r){ heroRange = r; renderHeroChart(true); }
@@ -4513,31 +4503,29 @@ function updateVestedTotals() {
   pctEl.textContent = (priced ? '' : '(awaiting live prices) ') + (pnlPct>=0?'+':'') + pnlPct.toFixed(2) + '%';
 }
 
-// ── Client-side live quotes (Yahoo Finance via CORS proxy — no backend needed) ──
-async function fetchYahooQuote(ySym) {
-  const u = 'https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(ySym) + '?interval=1d&range=1d';
+// ── Fetch a URL's JSON through several CORS relays IN PARALLEL — first to respond wins ──
+async function proxiedJSON(u, timeout) {
   const enc = encodeURIComponent(u);
-  // Multiple CORS relays — in a real browser these send an Origin header and succeed.
-  const attempts = [
-    { url: 'https://corsproxy.io/?url=' + enc,            wrap: false },
-    { url: 'https://api.allorigins.win/raw?url=' + enc,   wrap: false },
-    { url: 'https://api.allorigins.win/get?url=' + enc,   wrap: true  },
-    { url: 'https://thingproxy.freeboard.io/fetch/' + u,  wrap: false },
+  const t = timeout || 8000;
+  const cands = [
+    fetch('https://corsproxy.io/?url=' + enc,            { signal: AbortSignal.timeout(t) }).then(r => r.json()),
+    fetch('https://api.allorigins.win/raw?url=' + enc,   { signal: AbortSignal.timeout(t) }).then(r => r.json()),
+    fetch('https://api.allorigins.win/get?url=' + enc,   { signal: AbortSignal.timeout(t) }).then(r => r.json()).then(j => JSON.parse(j.contents)),
+    fetch('https://thingproxy.freeboard.io/fetch/' + u,  { signal: AbortSignal.timeout(t) }).then(r => r.json()),
   ];
-  for (const a of attempts) {
-    try {
-      const r = await fetch(a.url, { signal: AbortSignal.timeout(9000) });
-      if (!r.ok) continue;
-      let j = await r.json();
-      if (a.wrap && j && typeof j.contents === 'string') j = JSON.parse(j.contents);
-      const m = j && j.chart && j.chart.result && j.chart.result[0] && j.chart.result[0].meta;
-      if (m && m.regularMarketPrice != null) {
-        const price = m.regularMarketPrice, prev = m.chartPreviousClose || m.previousClose || price;
-        return { price, change: prev ? ((price - prev) / prev * 100) : 0,
-                 volume: m.regularMarketVolume || 0, mcap: m.marketCap || 0 };
-      }
-    } catch (e) { /* try next relay */ }
-  }
+  return Promise.any(cands);   // resolves with the first successful relay
+}
+
+async function fetchYahooQuote(ySym) {
+  try {
+    const j = await proxiedJSON('https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(ySym) + '?interval=1d&range=1d');
+    const m = j && j.chart && j.chart.result && j.chart.result[0] && j.chart.result[0].meta;
+    if (m && m.regularMarketPrice != null) {
+      const price = m.regularMarketPrice, prev = m.chartPreviousClose || m.previousClose || price;
+      return { price, change: prev ? ((price - prev) / prev * 100) : 0,
+               volume: m.regularMarketVolume || 0, mcap: m.marketCap || 0 };
+    }
+  } catch (e) {}
   return null;
 }
 // items: [{sym, market}] — parallel fetch, returns {sym:{price,change}}
@@ -4553,27 +4541,15 @@ async function fetchLiveQuotes(items) {
 
 // ─── REAL SIGNAL ENGINE (live data + backtest, no backend) ───────────────────
 async function fetchYahooHistory(ySym) {
-  const u = 'https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(ySym) + '?interval=1d&range=1y';
-  const enc = encodeURIComponent(u);
-  const attempts = [
-    { url: 'https://corsproxy.io/?url=' + enc,          wrap: false },
-    { url: 'https://api.allorigins.win/raw?url=' + enc, wrap: false },
-    { url: 'https://api.allorigins.win/get?url=' + enc, wrap: true  },
-    { url: 'https://thingproxy.freeboard.io/fetch/' + u, wrap: false },
-  ];
-  for (const a of attempts) {
-    try {
-      const r = await fetch(a.url, { signal: AbortSignal.timeout(12000) });
-      if (!r.ok) continue;
-      let j = await r.json();
-      if (a.wrap && j && typeof j.contents === 'string') j = JSON.parse(j.contents);
-      const res = j && j.chart && j.chart.result && j.chart.result[0];
-      if (!res) continue;
+  try {
+    const j = await proxiedJSON('https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(ySym) + '?interval=1d&range=1y', 10000);
+    const res = j && j.chart && j.chart.result && j.chart.result[0];
+    if (res) {
       const q = res.indicators.quote[0], m = res.meta;
-      if (!q || !q.close || q.close.filter(x => x != null).length < 60) continue;
-      return { close: q.close, high: q.high, low: q.low, vol: q.volume, name: m.longName || m.shortName || ySym, price: m.regularMarketPrice };
-    } catch (e) {}
-  }
+      if (q && q.close && q.close.filter(x => x != null).length >= 60)
+        return { close: q.close, high: q.high, low: q.low, vol: q.volume, name: m.longName || m.shortName || ySym, price: m.regularMarketPrice };
+    }
+  } catch (e) {}
   return null;
 }
 function _sma(a,n,i){ if(i+1<n) return null; let s=0,c=0; for(let k=i+1-n;k<=i;k++){ if(a[k]!=null){s+=a[k];c++;} } return c?s/c:null; }
